@@ -133,7 +133,13 @@ public final class ActivationActivity extends Activity {
                     scheduleNext();
                     return;
                 }
-                RenciaGateway.RenciaAccess access = gateway.loadAccess(code);
+                postStatus("Aparelho autorizado. Baixando sua lista M3U...");
+                RenciaGateway.RenciaAccess access;
+                if (check.urlM3u8 != null && !check.urlM3u8.trim().isEmpty()) {
+                    access = new RenciaGateway.RenciaAccess(code, "", "", "", "m3u", check.urlM3u8, check.urlEpg);
+                } else {
+                    access = gateway.loadAccess(code);
+                }
                 if (access.urlM3u8 != null && !access.urlM3u8.trim().isEmpty()) {
                     access = M3uXtreamBridge.start(access.mac, access.urlM3u8);
                 }

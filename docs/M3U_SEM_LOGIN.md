@@ -16,3 +16,7 @@ A atividade de ativação só abre a área principal depois que o `SessionHolder
 | Validação adicional | Teste local M3U com POST, categorias e streams |
 
 A build usa assinatura de teste. Desinstale a versão anterior antes de instalar. A validação completa do conteúdo depende do MAC cadastrado no painel e da URL M3U acessível pelo aparelho.
+
+Na validação do backend, o endpoint `device/check` confirmou que o MAC de teste estava liberado e retornou `allowed: true` junto com `urlM3u8`. A correção usa essa URL diretamente, sem depender de uma segunda resposta Xtream; o aplicativo exibe o status de autorização e o download da lista separadamente para facilitar o diagnóstico.
+
+A build correspondente ao ajuste é `NewVision1.0.20-m3u-backend.apk`, com SHA-256 `946f1c3377a7eeb33ba505b373033e9c07de4a0a7a664b95f519999ea9346b63`.
