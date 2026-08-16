@@ -134,9 +134,15 @@ public final class ActivationActivity extends Activity {
                     return;
                 }
                 RenciaGateway.RenciaAccess access = gateway.loadAccess(code);
+                if (access.urlM3u8 != null && !access.urlM3u8.trim().isEmpty()) {
+                    access = M3uXtreamBridge.start(access.mac, access.urlM3u8);
+                }
                 RenciaCredentialCache.set(access);
-                postStatus("Código autorizado. Abrindo o aplicativo...");
-                handler.postDelayed(this::openMain, 350L);
+                postStatus("Lista autorizada. Carregando canais, filmes e séries...");
+                RenciaLoginBridge.startAuthorizedLogin(
+                        this::openMain,
+                        () -> postStatus("A lista foi autorizada, mas ainda não carregou. Tentando novamente...")
+                );
             } catch (Exception ignored) {
                 postStatus("Aguardando conexão com o painel...");
                 scheduleNext();

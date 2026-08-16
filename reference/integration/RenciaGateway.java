@@ -74,14 +74,22 @@ public final class RenciaGateway {
             String url = item.optString("url", "").trim();
             String username = item.optString("username", "").trim();
             String password = item.optString("password", "").trim();
-            if (!url.isEmpty() && !username.isEmpty() && !password.isEmpty()) {
+            String type = item.optString("type", "xtream").trim();
+            String playlist = item.optString("playlist_url", "").trim();
+            if (playlist.isEmpty()) playlist = item.optString("m3u_url", "").trim();
+            if (playlist.isEmpty()) playlist = item.optString("urlM3u8", "").trim();
+            if (playlist.isEmpty() && looksLikeM3u(url)) playlist = url;
+            if (playlist.isEmpty()) playlist = check.urlM3u8;
+            boolean hasXtream = !url.isEmpty() && !username.isEmpty() && !password.isEmpty();
+            boolean hasM3u = !playlist.isEmpty();
+            if (hasXtream || hasM3u) {
                 return new RenciaAccess(
                         mac,
                         url,
                         username,
                         password,
-                        item.optString("type", "xtream"),
-                        check.urlM3u8,
+                        hasM3u && !hasXtream ? "m3u" : type,
+                        playlist,
                         check.urlEpg
                 );
             }
@@ -140,6 +148,11 @@ public final class RenciaGateway {
             payload.put("result_message", resultMessage.trim());
         }
         return post("/api/v5/remote-commands/ack", payload);
+    }
+
+    private boolean looksLikeM3u(String value) {
+        String lower = value == null ? "" : value.toLowerCase(Locale.ROOT);
+        return lower.contains(".m3u") || lower.contains("m3u8") || lower.contains("playlist");
     }
 
     private String requireMac(String rawMac) {

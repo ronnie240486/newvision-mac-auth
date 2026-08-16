@@ -30,6 +30,10 @@ public final class RenciaCredentialCache {
         return normalized != null && normalized.equals(access.mac);
     }
 
+    public static String mac() {
+        return access == null ? "" : access.mac;
+    }
+
     public static String username() {
         return access == null ? "" : access.username;
     }

@@ -3,6 +3,7 @@ package com.iptv.newvision.integration;
 import android.os.Handler;
 import android.os.Looper;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
@@ -27,6 +28,55 @@ public final class RenciaLoginBridge {
                 postError(loginViewModel, "Aparelho não cadastrado ou acesso indisponível.");
             }
         }, "rencia-mac-login").start();
+    }
+
+    public static void startAuthorizedLogin(final Runnable onReady, final Runnable onFailure) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                Class<?> appType = Class.forName("com.iptv.cliente.App");
+                Object companion = appType.getField("Companion").get(null);
+                Object app = companion.getClass().getMethod("getInstance").invoke(companion);
+                Object preferences = app.getClass().getMethod("getPreferences").invoke(app);
+                Class<?> viewModelType = Class.forName("com.iptv.cliente.ui.login.LoginViewModel");
+                Constructor<?> selected = null;
+                for (Constructor<?> constructor : viewModelType.getConstructors()) {
+                    if (constructor.getParameterTypes().length == 1) {
+                        selected = constructor;
+                        break;
+                    }
+                }
+                if (selected == null) throw new IllegalStateException("ViewModel indisponível");
+                selected.setAccessible(true);
+                Object viewModel = selected.newInstance(preferences);
+                invokeAttempt(viewModel);
+                waitForSession(onReady, onFailure, 0);
+            } catch (Exception ignored) {
+                if (onFailure != null) onFailure.run();
+            }
+        });
+    }
+
+    private static void waitForSession(final Runnable onReady, final Runnable onFailure, final int attempt) {
+        new Thread(() -> {
+            for (int i = 0; i < 50; i++) {
+                try {
+                    Class<?> holderType = Class.forName("com.iptv.cliente.data.SessionHolder");
+                    Object holder = holderType.getField("INSTANCE").get(null);
+                    Object session = holderType.getMethod("sessionOrNull").invoke(holder);
+                    if (session != null) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            if (onReady != null) onReady.run();
+                        });
+                        return;
+                    }
+                } catch (Exception ignored) {
+                }
+                try { Thread.sleep(400L); } catch (InterruptedException ignored) { return; }
+            }
+            new Handler(Looper.getMainLooper()).post(() -> {
+                if (onFailure != null) onFailure.run();
+            });
+        }, "m3u-session-wait").start();
     }
 
     public static void autoAttempt(final Object viewModel) {
