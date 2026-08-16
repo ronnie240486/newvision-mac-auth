@@ -26,3 +26,9 @@ A correção final envia `server_info.port` e `server_info.https_port` como text
 A build final também cria `UserInfo`, `ServerInfo`, `AccountResponse` e `XtreamSession` diretamente em memória e grava a sessão no `SessionHolder`. Assim, não chama o `LoginViewModel`, não chama login Xtream externo e não depende de usuário ou senha para abrir o catálogo.
 
 A build correspondente é `NewVision1.0.20-m3u-direct.apk`, com SHA-256 `6f4f099ca3db577d0d9a30b46bbee2d77a0a616f2477f615957b8584a5e502e`.
+
+## Correção de memória
+
+A build `NewVision1.0.20-m3u-stable.apk` corrige o `OutOfMemoryError` ocorrido em `M3uXtreamBridge.writeJson`. As respostas de canais, filmes e séries agora respeitam `category_id`; quando o catálogo solicita a lista sem categoria, a ponte devolve apenas uma página inicial limitada, e as categorias podem ser carregadas sob demanda. O parser continua mantendo as URLs originais de reprodução.
+
+SHA-256: `853061ab3bd7448813c2647a2071e12e519b70699d064c305de3f849f07dfcf6`

@@ -203,9 +203,9 @@ public final class M3uXtreamBridge {
             if ("get_live_categories".equals(action)) return categories(0);
             if ("get_vod_categories".equals(action)) return categories(1);
             if ("get_series_categories".equals(action)) return categories(2);
-            if ("get_live_streams".equals(action)) return arrayItems(0);
-            if ("get_vod_streams".equals(action)) return arrayItems(1);
-            if ("get_series".equals(action)) return arrayItems(2);
+            if ("get_live_streams".equals(action)) return arrayItems(0, param(query, "category_id"));
+            if ("get_vod_streams".equals(action)) return arrayItems(1, param(query, "category_id"));
+            if ("get_series".equals(action)) return arrayItems(2, param(query, "category_id"));
             if ("get_vod_info".equals(action)) return vodInfo(param(query, "vod_id"));
             if ("get_series_info".equals(action)) return seriesInfo(param(query, "series_id"));
             if ("get_short_epg".equals(action)) return new JSONObject().put("epg_listings", new JSONArray());
@@ -245,10 +245,15 @@ public final class M3uXtreamBridge {
             return array;
         }
 
-        private JSONArray arrayItems(int kind) throws Exception {
+        private JSONArray arrayItems(int kind, String requestedCategoryId) throws Exception {
             JSONArray array = new JSONArray();
+            int emitted = 0;
+            boolean filtered = requestedCategoryId != null && !requestedCategoryId.isEmpty();
             for (Item item : items) {
                 if (item.kind != kind) continue;
+                String itemCategoryId = String.valueOf(categoryId(kind, item.group));
+                if (filtered && !requestedCategoryId.equals(itemCategoryId)) continue;
+                if (!filtered && emitted >= 250) break;
                 JSONObject value = new JSONObject()
                         .put("name", item.name)
                         .put("stream_id", item.id)
@@ -259,6 +264,7 @@ public final class M3uXtreamBridge {
                 if (kind == 1) value.put("vod_id", item.id);
                 if (kind == 2) value.put("series_id", item.id).put("cover", item.logo);
                 array.put(value);
+                emitted++;
             }
             return array;
         }
