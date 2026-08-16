@@ -7,6 +7,7 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -80,6 +81,7 @@ public final class M3uXtreamBridge {
         private final List<Item> items = new ArrayList<>();
         private final Map<String, Integer> categoryIds = new LinkedHashMap<>();
         private final Map<String, Item> seriesParents = new LinkedHashMap<>();
+        private static final Pattern URL_PATTERN = Pattern.compile("https?://\\S+");
         private final Map<Integer, List<Item>> seriesEpisodes = new LinkedHashMap<>();
         private volatile boolean running = true;
         private ServerSocket socket;
@@ -99,50 +101,65 @@ public final class M3uXtreamBridge {
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
             int code = connection.getResponseCode();
             if (code < 200 || code >= 300) throw new IllegalStateException("M3U HTTP " + code);
-            StringBuilder raw = new StringBuilder();
             try (InputStream stream = connection.getInputStream();
                  BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8), 32768)) {
-                char[] buffer = new char[32768];
-                int count;
-                while ((count = reader.read(buffer)) >= 0) raw.append(buffer, 0, count);
+                parseStreaming(reader);
             } finally {
                 connection.disconnect();
             }
-            parseRecords(raw.toString());
             if (items.isEmpty()) throw new IllegalStateException("M3U sem conteúdo");
         }
 
-        private void parseRecords(String raw) {
-            String normalized = raw.replace('\r', ' ');
-            int cursor = normalized.indexOf("#EXTINF");
-            int id = 1;
-            Pattern urlPattern = Pattern.compile("https?://\\S+");
-            while (cursor >= 0) {
-                int next = normalized.indexOf("#EXTINF", cursor + 7);
-                String record = normalized.substring(cursor, next < 0 ? normalized.length() : next);
-                int comma = record.indexOf(',');
-                if (comma >= 0) {
-                    String info = record.substring(0, comma);
-                    String tail = record.substring(comma + 1);
-                    Matcher urlMatcher = urlPattern.matcher(tail);
-                    if (urlMatcher.find()) {
-                        String url = urlMatcher.group().trim();
-                        while (url.endsWith(")") || url.endsWith(",")) url = url.substring(0, url.length() - 1);
-                        String name = tail.substring(0, urlMatcher.start()).replace('\n', ' ').trim();
-                        if (name.isEmpty()) name = "Item " + id;
-                        String group = attribute(info, "group-title");
-                        if (group.isEmpty()) group = "Geral";
-                        String logo = attribute(info, "tvg-logo");
-                        String extension = extension(url);
-                        int kind = classify(group, name, url);
-                        Item item = new Item(id++, name, url, group, logo, extension, kind);
-                        items.add(item);
-                        categoryId(kind, group);
-                        if (kind == 2) registerSeriesEpisode(item);
+        private void parseStreaming(Reader reader) throws Exception {
+            StringBuilder record = new StringBuilder(1024);
+            char[] buffer = new char[8192];
+            int count;
+            while ((count = reader.read(buffer)) >= 0) {
+                for (int i = 0; i < count; i++) {
+                    record.append(buffer[i]);
+                    int length = record.length();
+                    if (length >= 7
+                            && record.charAt(length - 7) == '#'
+                            && record.charAt(length - 6) == 'E'
+                            && record.charAt(length - 5) == 'X'
+                            && record.charAt(length - 4) == 'T'
+                            && record.charAt(length - 3) == 'I'
+                            && record.charAt(length - 2) == 'N'
+                            && record.charAt(length - 1) == 'F') {
+                        int marker = length - 7;
+                        if (marker > 0) {
+                            parseRecord(record.substring(0, marker));
+                            record.delete(0, marker);
+                        }
+                    }
+                    if (record.length() > 1024 * 1024) {
+                        record.setLength(0);
                     }
                 }
-                cursor = next;
             }
+            if (record.length() > 0) parseRecord(record.toString());
+        }
+
+        private void parseRecord(String record) {
+            int comma = record.indexOf(',');
+            if (comma < 0) return;
+            String info = record.substring(0, comma);
+            String tail = record.substring(comma + 1);
+            Matcher urlMatcher = URL_PATTERN.matcher(tail);
+            if (!urlMatcher.find()) return;
+            String url = urlMatcher.group().trim();
+            while (url.endsWith(")") || url.endsWith(",")) url = url.substring(0, url.length() - 1);
+            String name = tail.substring(0, urlMatcher.start()).replace('\n', ' ').replace('\r', ' ').trim();
+            if (name.isEmpty()) name = "Item " + (items.size() + 1);
+            String group = attribute(info, "group-title");
+            if (group.isEmpty()) group = "Geral";
+            String logo = attribute(info, "tvg-logo");
+            String extension = extension(url);
+            int kind = classify(group, name, url);
+            Item item = new Item(items.size() + 1, name, url, group, logo, extension, kind);
+            items.add(item);
+            categoryId(kind, group);
+            if (kind == 2) registerSeriesEpisode(item);
         }
 
         String baseUrl() {

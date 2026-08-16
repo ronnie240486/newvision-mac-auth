@@ -47,3 +47,13 @@ O teste final da M3U real confirmou `has_anime=true`, `has_filmes=true`, `has_se
 
 Build final de catálogo: `NewVision1.0.20-m3u-catalog.apk`.
 SHA-256: `57f151cc6d5b4bab429103580f6c56a1588ea42a6e96963f7ab32a310868a748`.
+
+## Correção definitiva do OutOfMemoryError
+
+O erro apontava para `M3uXtreamBridge$LocalXtreamServer.load` porque a versão anterior acumulava toda a resposta em `StringBuilder`. O carregamento agora usa `BufferedReader` e processa um registro por vez; o buffer de trabalho é descartado quando excede 1 MB sem encontrar um novo item. Nenhuma string é criada proporcionalmente ao tamanho total da M3U.
+
+O teste de estresse transmitiu aproximadamente 280 MB com heap máximo de 256 MB e confirmou `contains_stream=true`, sem `OutOfMemoryError`. O teste da cópia real da M3U também confirmou canais, filmes, séries, anime e redirecionamento de reprodução.
+
+Build de correção de memória: `NewVision1.0.20-m3u-streaming.apk`.
+SHA-256: `a6c40c1a0cf58ebd34315b6b259e7912ec61edac00434e326d0abf91a7f28260`.
+O parser usa leitura incremental e não mantém a resposta M3U inteira em memória.

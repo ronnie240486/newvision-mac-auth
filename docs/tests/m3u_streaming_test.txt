@@ -1,0 +1,11 @@
+live_categories_bytes=2801
+vod_categories_bytes=1842
+series_categories_bytes=1568
+live_items=250
+vod_items=250
+series_items=250
+series_episode_ids=1
+stream_redirect_code=302
+has_anime=true
+has_filmes=true
+has_series=true
