@@ -29,6 +29,11 @@ public final class RenciaLoginBridge {
         }, "rencia-mac-login").start();
     }
 
+    public static void autoAttempt(final Object viewModel) {
+        if (!RenciaCredentialCache.isReady()) return;
+        new Handler(Looper.getMainLooper()).postDelayed(() -> invokeAttempt(viewModel), 700L);
+    }
+
     private static void invokeAttempt(Object viewModel) {
         try {
             Method attempt = viewModel.getClass().getMethod("attemptLogin");
