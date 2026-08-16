@@ -19,4 +19,6 @@ A build usa assinatura de teste. Desinstale a versão anterior antes de instalar
 
 Na validação do backend, o endpoint `device/check` confirmou que o MAC de teste estava liberado e retornou `allowed: true` junto com `urlM3u8`. A correção usa essa URL diretamente, sem depender de uma segunda resposta Xtream; o aplicativo exibe o status de autorização e o download da lista separadamente para facilitar o diagnóstico.
 
-A build correspondente ao ajuste é `NewVision1.0.20-m3u-backend.apk`, com SHA-256 `946f1c3377a7eeb33ba505b373033e9c07de4a0a7a664b95f519999ea9346b63`.
+A build correspondente ao ajuste é `NewVision1.0.20-m3u-port.apk`, com SHA-256 `5a50f66f96b37fce72bfdb981a9dbcd7ff398a1cb3c712f8ca4e4b6229d29431`.
+
+A correção final envia `server_info.port` e `server_info.https_port` como texto, preservando a porta aleatória do adaptador local. Sem isso, o modelo do APK assumia a porta padrão `80`, e a sessão não conseguia completar o carregamento do catálogo mesmo com a M3U autorizada.

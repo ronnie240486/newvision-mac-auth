@@ -221,9 +221,10 @@ public final class M3uXtreamBridge {
             user.put("password", "device");
             user.put("exp_date", "");
             JSONObject server = new JSONObject();
+            String localPort = String.valueOf(socket.getLocalPort());
             server.put("url", "127.0.0.1");
-            server.put("port", socket.getLocalPort());
-            server.put("https_port", socket.getLocalPort());
+            server.put("port", localPort);
+            server.put("https_port", localPort);
             server.put("server_protocol", "http");
             root.put("user_info", user);
             root.put("server_info", server);
