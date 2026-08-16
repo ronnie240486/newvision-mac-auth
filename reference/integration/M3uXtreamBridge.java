@@ -228,7 +228,7 @@ public final class M3uXtreamBridge {
                     return;
                 }
                 String upstream = itemUrl(target);
-                if (upstream != null) writeRedirect(s, upstream);
+                if (upstream != null) proxyStream(s, upstream);
                 else writeJson(s, new JSONObject().put("error", "stream_not_found"), 404);
             } catch (Exception ignored) {
             }
@@ -498,6 +498,44 @@ public final class M3uXtreamBridge {
             OutputStream output = socket.getOutputStream();
             output.write(("HTTP/1.1 302 Found\r\nLocation: " + location + "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.UTF_8));
             output.flush();
+        }
+
+        private void proxyStream(Socket socket, String location) throws Exception {
+            HttpURLConnection upstream = (HttpURLConnection) new URL(location).openConnection();
+            upstream.setRequestMethod("GET");
+            upstream.setConnectTimeout(15000);
+            upstream.setReadTimeout(60000);
+            upstream.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
+            upstream.setRequestProperty("Accept", "*/*");
+            int code = upstream.getResponseCode();
+            if (code < 200 || code >= 300) {
+                writeJson(socket, new JSONObject().put("error", "upstream_http_" + code), code);
+                upstream.disconnect();
+                return;
+            }
+            OutputStream output = socket.getOutputStream();
+            String contentType = upstream.getContentType();
+            if (contentType == null || contentType.isEmpty()) contentType = "application/octet-stream";
+            long contentLength = upstream.getContentLengthLong();
+            StringBuilder headers = new StringBuilder()
+                    .append("HTTP/1.1 200 OK\r\n")
+                    .append("Content-Type: ").append(contentType).append("\r\n")
+                    .append("Cache-Control: no-cache\r\n")
+                    .append("Connection: close\r\n");
+            if (contentLength >= 0) headers.append("Content-Length: ").append(contentLength).append("\r\n");
+            headers.append("\r\n");
+            output.write(headers.toString().getBytes(StandardCharsets.UTF_8));
+            try (InputStream input = upstream.getInputStream()) {
+                byte[] buffer = new byte[32768];
+                int count;
+                while ((count = input.read(buffer)) >= 0) {
+                    if (count == 0) continue;
+                    output.write(buffer, 0, count);
+                    output.flush();
+                }
+            } finally {
+                upstream.disconnect();
+            }
         }
     }
 

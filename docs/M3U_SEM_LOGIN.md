@@ -43,7 +43,7 @@ O teste contra a cópia real da M3U confirmou categorias de canais, filmes e sé
 
 Os grupos `24/7 ANIMES E DESENHOS`, `24/7 ANIMES+`, `24/7 DORAMAS+`, `24/7 SERIADOS`, `24/7 NOVELAS` e `24/7 TURCAS` são encaminhados para a área de séries, porque a navegação deste APK possui canais, filmes e séries, mas não uma tela separada de anime. Os itens continuam com suas URLs originais e podem ser reproduzidos pela ponte local.
 
-O teste final da M3U real confirmou `has_anime=true`, `has_filmes=true`, `has_series=true`, 250 itens na página inicial de canais, filmes e séries e código HTTP 302 para o encaminhamento de reprodução.
+O teste final da M3U real confirmou `has_anime=true`, `has_filmes=true` e `has_series=true`, com 250 itens na página inicial de canais, filmes e séries. A reprodução agora usa um proxy de bytes local, evitando depender de redirect 302.
 
 Build final de catálogo: `NewVision1.0.20-m3u-catalog.apk`.
 SHA-256: `57f151cc6d5b4bab429103580f6c56a1588ea42a6e96963f7ab32a310868a748`.
@@ -52,8 +52,12 @@ SHA-256: `57f151cc6d5b4bab429103580f6c56a1588ea42a6e96963f7ab32a310868a748`.
 
 O erro apontava para `M3uXtreamBridge$LocalXtreamServer.load` porque a versão anterior acumulava toda a resposta em `StringBuilder`. O carregamento agora usa `BufferedReader` e processa um registro por vez; o buffer de trabalho é descartado quando excede 1 MB sem encontrar um novo item. Nenhuma string é criada proporcionalmente ao tamanho total da M3U.
 
-O teste de estresse transmitiu aproximadamente 280 MB com heap máximo de 256 MB e confirmou `contains_stream=true`, sem `OutOfMemoryError`. O teste da cópia real da M3U também confirmou canais, filmes, séries, anime e redirecionamento de reprodução.
+O teste de estresse transmitiu aproximadamente 280 MB com heap máximo de 256 MB e confirmou `contains_stream=true`, sem `OutOfMemoryError`. O teste da cópia real da M3U confirmou canais, filmes, séries e anime. O teste de proxy confirmou que os bytes `CHANNEL_BYTES` e `MOVIE_BYTES` chegam ao player com HTTP 200.
 
 Build de correção de memória: `NewVision1.0.20-m3u-streaming.apk`.
 SHA-256: `a6c40c1a0cf58ebd34315b6b259e7912ec61edac00434e326d0abf91a7f28260`.
 O parser usa leitura incremental e não mantém a resposta M3U inteira em memória.
+
+Build de reprodução por proxy: `NewVision1.0.20-m3u-proxy.apk`.
+SHA-256: `b7561785ffe4ebf83d6cbc3b66e86f61f5026fcf0c71b6976af875b907a61ab0`.
+A ponte não devolve mais redirect para os itens; ela copia o fluxo da URL original em blocos de 32 KB para o player local.
