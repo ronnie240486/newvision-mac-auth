@@ -61,3 +61,9 @@ O parser usa leitura incremental e não mantém a resposta M3U inteira em memór
 Build de reprodução por proxy: `NewVision1.0.20-m3u-proxy.apk`.
 SHA-256: `b7561785ffe4ebf83d6cbc3b66e86f61f5026fcf0c71b6976af875b907a61ab0`.
 A ponte não devolve mais redirect para os itens; ela copia o fluxo da URL original em blocos de 32 KB para o player local.
+
+## Build baseada no contrato `guim.php`
+
+A build `NewVision1.0.20-guim-m3uplus.apk` usa literalmente o objeto `data` do endpoint `/api/guim.php?mac={MAC}`. Quando `type` contém `m3u`, a lista é montada como `{url}/get.php?username={username}&password={password}&type=m3u_plus&output=mpegts`, com os valores vindos da fonte autorizada do painel. Ela não usa `urlM3u8` do `device/check` como substituto quando a fonte `guim.php` contém os campos completos.
+
+SHA-256: `c9af0d4686845f1ce63869fc06a62b0bdd25a4fc0219641a411bdc06b1ab41d9`.

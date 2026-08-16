@@ -78,6 +78,10 @@ public final class RenciaGateway {
             String playlist = item.optString("playlist_url", "").trim();
             if (playlist.isEmpty()) playlist = item.optString("m3u_url", "").trim();
             if (playlist.isEmpty()) playlist = item.optString("urlM3u8", "").trim();
+            boolean m3uPlus = type.toLowerCase(Locale.ROOT).contains("m3u");
+            if (m3uPlus && !url.isEmpty() && !username.isEmpty() && !password.isEmpty()) {
+                playlist = buildM3uPlusUrl(url, username, password);
+            }
             if (playlist.isEmpty() && looksLikeM3u(url)) playlist = url;
             if (playlist.isEmpty()) playlist = check.urlM3u8;
             boolean hasXtream = !url.isEmpty() && !username.isEmpty() && !password.isEmpty();
@@ -148,6 +152,16 @@ public final class RenciaGateway {
             payload.put("result_message", resultMessage.trim());
         }
         return post("/api/v5/remote-commands/ack", payload);
+    }
+
+    private String buildM3uPlusUrl(String rawUrl, String username, String password) throws Exception {
+        String base = rawUrl.trim();
+        if (!base.contains("://")) base = "http://" + base;
+        if (base.contains("get.php?")) return base;
+        if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        return base + "/get.php?username=" + encode(username)
+                + "&password=" + encode(password)
+                + "&type=m3u_plus&output=mpegts";
     }
 
     private boolean looksLikeM3u(String value) {
