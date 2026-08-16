@@ -20,6 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Adapta uma URL M3U autorizada para o contrato Xtream que o catálogo legado já entende.
@@ -77,6 +79,8 @@ public final class M3uXtreamBridge {
         private final String sourceUrl;
         private final List<Item> items = new ArrayList<>();
         private final Map<String, Integer> categoryIds = new LinkedHashMap<>();
+        private final Map<String, Item> seriesParents = new LinkedHashMap<>();
+        private final Map<Integer, List<Item>> seriesEpisodes = new LinkedHashMap<>();
         private volatile boolean running = true;
         private ServerSocket socket;
 
@@ -90,40 +94,55 @@ public final class M3uXtreamBridge {
             HttpURLConnection connection = (HttpURLConnection) new URL(sourceUrl).openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(10000);
-            connection.setReadTimeout(20000);
+            connection.setReadTimeout(60000);
             connection.setRequestProperty("Accept", "audio/x-mpegurl, application/vnd.apple.mpegurl, text/plain");
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
             int code = connection.getResponseCode();
             if (code < 200 || code >= 300) throw new IllegalStateException("M3U HTTP " + code);
-            InputStream stream = connection.getInputStream();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-                String line;
-                String extinf = null;
-                int id = 1;
-                while ((line = reader.readLine()) != null) {
-                    line = line.trim();
-                    if (line.isEmpty()) continue;
-                    if (line.startsWith("#EXTINF")) {
-                        extinf = line;
-                        continue;
-                    }
-                    if (line.startsWith("#")) continue;
-                    if (extinf == null) continue;
-                    String group = attribute(extinf, "group-title");
-                    if (group.isEmpty()) group = "Geral";
-                    String logo = attribute(extinf, "tvg-logo");
-                    String name = extinf.substring(extinf.lastIndexOf(',') + 1).trim();
-                    if (name.isEmpty()) name = "Item " + id;
-                    String extension = extension(line);
-                    int kind = classify(group + " " + name);
-                    Item item = new Item(id++, name, line, group, logo, extension, kind);
-                    items.add(item);
-                    categoryId(kind, group);
-                    extinf = null;
-                }
+            StringBuilder raw = new StringBuilder();
+            try (InputStream stream = connection.getInputStream();
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8), 32768)) {
+                char[] buffer = new char[32768];
+                int count;
+                while ((count = reader.read(buffer)) >= 0) raw.append(buffer, 0, count);
             } finally {
                 connection.disconnect();
             }
+            parseRecords(raw.toString());
             if (items.isEmpty()) throw new IllegalStateException("M3U sem conteúdo");
+        }
+
+        private void parseRecords(String raw) {
+            String normalized = raw.replace('\r', ' ');
+            int cursor = normalized.indexOf("#EXTINF");
+            int id = 1;
+            Pattern urlPattern = Pattern.compile("https?://\\S+");
+            while (cursor >= 0) {
+                int next = normalized.indexOf("#EXTINF", cursor + 7);
+                String record = normalized.substring(cursor, next < 0 ? normalized.length() : next);
+                int comma = record.indexOf(',');
+                if (comma >= 0) {
+                    String info = record.substring(0, comma);
+                    String tail = record.substring(comma + 1);
+                    Matcher urlMatcher = urlPattern.matcher(tail);
+                    if (urlMatcher.find()) {
+                        String url = urlMatcher.group().trim();
+                        while (url.endsWith(")") || url.endsWith(",")) url = url.substring(0, url.length() - 1);
+                        String name = tail.substring(0, urlMatcher.start()).replace('\n', ' ').trim();
+                        if (name.isEmpty()) name = "Item " + id;
+                        String group = attribute(info, "group-title");
+                        if (group.isEmpty()) group = "Geral";
+                        String logo = attribute(info, "tvg-logo");
+                        String extension = extension(url);
+                        int kind = classify(group, name, url);
+                        Item item = new Item(id++, name, url, group, logo, extension, kind);
+                        items.add(item);
+                        categoryId(kind, group);
+                        if (kind == 2) registerSeriesEpisode(item);
+                    }
+                }
+                cursor = next;
+            }
         }
 
         String baseUrl() {
@@ -249,20 +268,46 @@ public final class M3uXtreamBridge {
             JSONArray array = new JSONArray();
             int emitted = 0;
             boolean filtered = requestedCategoryId != null && !requestedCategoryId.isEmpty();
+            if (kind == 2) {
+                for (Item item : seriesParents.values()) {
+                    if (item.kind != kind) continue;
+                    String itemCategoryId = String.valueOf(categoryId(kind, item.group));
+                    if (filtered && !requestedCategoryId.equals(itemCategoryId)) continue;
+                    if (!filtered && emitted >= 250) break;
+                    String displayName = seriesDisplayName(item.name);
+                    JSONObject value = new JSONObject()
+                            .put("num", item.id)
+                            .put("name", displayName)
+                            .put("series_id", item.id)
+                            .put("cover", item.logo)
+                            .put("cover_big", item.logo)
+                            .put("plot", "")
+                            .put("category_id", itemCategoryId)
+                            .put("last_modified", "")
+                            .put("rating_5based", 0.0)
+                            .put("genre", "");
+                    array.put(value);
+                    emitted++;
+                }
+                return array;
+            }
             for (Item item : items) {
                 if (item.kind != kind) continue;
                 String itemCategoryId = String.valueOf(categoryId(kind, item.group));
                 if (filtered && !requestedCategoryId.equals(itemCategoryId)) continue;
                 if (!filtered && emitted >= 250) break;
+                JSONArray categoryList = new JSONArray().put(Integer.parseInt(itemCategoryId));
                 JSONObject value = new JSONObject()
+                        .put("num", item.id)
                         .put("name", item.name)
                         .put("stream_id", item.id)
                         .put("stream_icon", item.logo)
-                        .put("category_id", String.valueOf(categoryId(kind, item.group)))
+                        .put("category_id", itemCategoryId)
+                        .put("category_ids", categoryList)
                         .put("container_extension", item.extension)
-                        .put("stream_type", kind == 0 ? "live" : "movie");
-                if (kind == 1) value.put("vod_id", item.id);
-                if (kind == 2) value.put("series_id", item.id).put("cover", item.logo);
+                        .put("stream_type", kind == 0 ? "live" : "movie")
+                        .put("direct_source", kind == 1 ? item.url : "");
+                if (kind == 1) value.put("vod_id", item.id).put("rating_5based", 0.0);
                 array.put(value);
                 emitted++;
             }
@@ -272,25 +317,47 @@ public final class M3uXtreamBridge {
         private JSONObject vodInfo(String id) throws Exception {
             Item item = find(id);
             if (item == null) return new JSONObject().put("info", new JSONObject());
-            return new JSONObject()
-                    .put("info", new JSONObject().put("name", item.name).put("movie_image", item.logo).put("plot", ""))
-                    .put("movie_data", new JSONObject().put("stream_id", item.id).put("name", item.name).put("container_extension", item.extension));
+            JSONObject info = new JSONObject()
+                    .put("name", item.name)
+                    .put("movie_image", item.logo)
+                    .put("backdrop_path", new JSONArray().put(item.logo))
+                    .put("plot", "")
+                    .put("genre", "")
+                    .put("rating", "0")
+                    .put("rating_5based", 0.0)
+                    .put("releasedate", "");
+            JSONObject data = new JSONObject()
+                    .put("stream_id", item.id)
+                    .put("name", item.name)
+                    .put("container_extension", item.extension)
+                    .put("direct_source", item.url);
+            return new JSONObject().put("info", info).put("movie_data", data);
         }
 
         private JSONObject seriesInfo(String id) throws Exception {
-            Item item = find(id);
+            Item parent = find(id);
             JSONArray episodes = new JSONArray();
-            if (item != null) {
-                episodes.put(new JSONObject()
-                        .put("id", item.id)
-                        .put("episode_num", 1)
-                        .put("title", item.name)
-                        .put("container_extension", item.extension)
-                        .put("info", new JSONObject().put("movie_image", item.logo)));
+            if (parent != null) {
+                List<Item> parts = seriesEpisodes.get(parent.id);
+                if (parts == null || parts.isEmpty()) parts = java.util.Collections.singletonList(parent);
+                for (Item episode : parts) {
+                    episodes.put(new JSONObject()
+                            .put("id", episode.id)
+                            .put("episode_num", episodeNumber(episode.name))
+                            .put("season", seasonNumber(episode.name))
+                            .put("title", episode.name)
+                            .put("container_extension", episode.extension)
+                            .put("direct_source", episode.url)
+                            .put("info", new JSONObject().put("movie_image", episode.logo)));
+                }
             }
             JSONObject bySeason = new JSONObject().put("1", episodes);
             return new JSONObject()
-                    .put("info", new JSONObject().put("name", item == null ? "" : item.name).put("cover", item == null ? "" : item.logo))
+                    .put("info", new JSONObject()
+                            .put("name", parent == null ? "" : seriesDisplayName(parent.name))
+                            .put("cover", parent == null ? "" : parent.logo)
+                            .put("plot", "")
+                            .put("genre", parent == null ? "" : parent.group))
                     .put("episodes", bySeason);
         }
 
@@ -322,11 +389,55 @@ public final class M3uXtreamBridge {
             return id;
         }
 
-        private int classify(String value) {
-            String lower = value.toLowerCase(Locale.ROOT);
-            if (lower.contains("filme") || lower.contains("movie") || lower.contains("vod")) return 1;
-            if (lower.contains("série") || lower.contains("serie") || lower.contains("series")) return 2;
+        private int classify(String group, String name, String url) {
+            String lowerGroup = group.toLowerCase(Locale.ROOT);
+            String lowerName = name.toLowerCase(Locale.ROOT);
+            String lowerUrl = url.toLowerCase(Locale.ROOT);
+            if (lowerUrl.contains("/series/") || lowerGroup.startsWith("series |")
+                    || lowerGroup.contains("série") || lowerGroup.contains("serie")
+                    || lowerGroup.contains("anime") || lowerGroup.contains("dorama")
+                    || lowerGroup.contains("seriado") || lowerGroup.contains("novela")
+                    || lowerGroup.contains("turca")) return 2;
+            if (lowerUrl.contains("/movie/") || lowerGroup.startsWith("filmes |")
+                    || lowerGroup.contains("filme") || lowerGroup.contains("movie")
+                    || lowerGroup.contains("vod")) return 1;
+            if (lowerName.matches(".*\\bs\\d{1,2}e\\d{1,3}\\b.*") && lowerUrl.endsWith(".mp4")) return 2;
             return 0;
+        }
+
+        private void registerSeriesEpisode(Item episode) {
+            String key = seriesDisplayName(episode.name).toLowerCase(Locale.ROOT);
+            Item parent = seriesParents.get(key);
+            if (parent == null) {
+                seriesParents.put(key, episode);
+                parent = episode;
+            }
+            List<Item> episodes = seriesEpisodes.get(parent.id);
+            if (episodes == null) {
+                episodes = new ArrayList<>();
+                seriesEpisodes.put(parent.id, episodes);
+            }
+            episodes.add(episode);
+        }
+
+        private String seriesDisplayName(String name) {
+            if (name == null) return "";
+            String result = name.replaceFirst("(?i)\\s+[sS]\\d{1,2}[eE]\\d{1,3}.*$", "");
+            result = result.replaceFirst("(?i)\\s+[tT]emporada\\s*\\d+.*$", "");
+            result = result.replaceFirst("(?i)\\s+[eE]p(?:is[oó]dio)?\\s*\\d+.*$", "");
+            return result.trim().isEmpty() ? name.trim() : result.trim();
+        }
+
+        private int seasonNumber(String name) {
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(?i)\\bs(\\d{1,2})e\\d{1,3}\\b").matcher(name == null ? "" : name);
+            return matcher.find() ? Integer.parseInt(matcher.group(1)) : 1;
+        }
+
+        private int episodeNumber(String name) {
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(?i)\\bs\\d{1,2}e(\\d{1,3})\\b").matcher(name == null ? "" : name);
+            if (matcher.find()) return Integer.parseInt(matcher.group(1));
+            matcher = java.util.regex.Pattern.compile("(?i)\\b(?:ep|epis[oó]dio)\\s*(\\d{1,3})\\b").matcher(name == null ? "" : name);
+            return matcher.find() ? Integer.parseInt(matcher.group(1)) : 1;
         }
 
         private String attribute(String line, String key) {

@@ -32,3 +32,18 @@ A build correspondente é `NewVision1.0.20-m3u-direct.apk`, com SHA-256 `6f4f099
 A build `NewVision1.0.20-m3u-stable.apk` corrige o `OutOfMemoryError` ocorrido em `M3uXtreamBridge.writeJson`. As respostas de canais, filmes e séries agora respeitam `category_id`; quando o catálogo solicita a lista sem categoria, a ponte devolve apenas uma página inicial limitada, e as categorias podem ser carregadas sob demanda. O parser continua mantendo as URLs originais de reprodução.
 
 SHA-256: `853061ab3bd7448813c2647a2071e12e519b70699d064c305de3f849f07dfcf6`
+
+## Correção de catálogo baseada na M3U real
+
+A M3U analisada contém 39.193 entradas e 91 grupos. A ponte agora prioriza o caminho da URL (`/movie/` e `/series/`) e os grupos `Filmes | ...` e `Series | ...`. Os grupos `24/7` com URLs `.ts`, incluindo `24/7 ANIMES E DESENHOS`, permanecem como canais e são preservados como categorias próprias.
+
+Séries são agrupadas pelo título-base, removendo sufixos `SxxExx`, `Temporada` e `Episódio`. O endpoint `get_series` entrega uma série por título e `get_series_info` entrega os episódios associados, com identificador e extensão para reprodução. Filmes e canais recebem `category_id`, `category_ids`, `num`, `stream_id`, ícone e extensão. O carregamento sem categoria continua limitado a uma página inicial para evitar OOM; ao escolher uma categoria, a ponte entrega os itens daquela categoria.
+
+O teste contra a cópia real da M3U confirmou categorias de canais, filmes e séries, além da presença de anime, e retornou 250 itens na página inicial de cada tipo.
+
+Os grupos `24/7 ANIMES E DESENHOS`, `24/7 ANIMES+`, `24/7 DORAMAS+`, `24/7 SERIADOS`, `24/7 NOVELAS` e `24/7 TURCAS` são encaminhados para a área de séries, porque a navegação deste APK possui canais, filmes e séries, mas não uma tela separada de anime. Os itens continuam com suas URLs originais e podem ser reproduzidos pela ponte local.
+
+O teste final da M3U real confirmou `has_anime=true`, `has_filmes=true`, `has_series=true`, 250 itens na página inicial de canais, filmes e séries e código HTTP 302 para o encaminhamento de reprodução.
+
+Build final de catálogo: `NewVision1.0.20-m3u-catalog.apk`.
+SHA-256: `57f151cc6d5b4bab429103580f6c56a1588ea42a6e96963f7ab32a310868a748`.
