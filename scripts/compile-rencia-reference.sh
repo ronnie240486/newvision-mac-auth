@@ -18,7 +18,8 @@ javac -source 8 -target 8 -cp "$ANDROID_JAR" -d "$OUT" \
   "$ROOT/reference/integration/RenciaCredentialCache.java" \
   "$ROOT/reference/integration/RenciaLoginBridge.java" \
   "$ROOT/reference/integration/ActivationActivity.java" \
-  "$ROOT/reference/integration/M3uXtreamBridge.java"
+  "$ROOT/reference/integration/M3uXtreamBridge.java" \
+  "$ROOT/reference/integration/DirectM3uSession.java"
 
 echo "Camada compilada em: $OUT"
 find "$OUT" -type f -printf '%P\n' | sort

@@ -22,3 +22,7 @@ Na validação do backend, o endpoint `device/check` confirmou que o MAC de test
 A build correspondente ao ajuste é `NewVision1.0.20-m3u-port.apk`, com SHA-256 `5a50f66f96b37fce72bfdb981a9dbcd7ff398a1cb3c712f8ca4e4b6229d29431`.
 
 A correção final envia `server_info.port` e `server_info.https_port` como texto, preservando a porta aleatória do adaptador local. Sem isso, o modelo do APK assumia a porta padrão `80`, e a sessão não conseguia completar o carregamento do catálogo mesmo com a M3U autorizada.
+
+A build final também cria `UserInfo`, `ServerInfo`, `AccountResponse` e `XtreamSession` diretamente em memória e grava a sessão no `SessionHolder`. Assim, não chama o `LoginViewModel`, não chama login Xtream externo e não depende de usuário ou senha para abrir o catálogo.
+
+A build correspondente é `NewVision1.0.20-m3u-direct.apk`, com SHA-256 `6f4f099ca3db577d0d9a30b46bbee2d77a0a616f2477f615957b8584a5e502e`.
