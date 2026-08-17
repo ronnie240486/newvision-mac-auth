@@ -6,5 +6,7 @@ O callback da marca Disney abre diretamente a lista de séries da sessão, sem f
 
 O `PlatformClient.start()` não inicia os jobs opcionais de plataforma em segundo plano nesta build. O catálogo Xtream e o ciclo de ativação MAC permanecem independentes desse cliente, evitando o fechamento observado quando a Home ficava parada.
 
+O APK final contém `ProfileActivity` e `ProfileStore` no `classes5.dex`; a primeira build publicada tinha apenas a declaração no manifest e foi substituída por esta versão corrigida.
+
 APK: `NewVision1.0.20-profile-disney-idle.apk`.
-SHA-256: `e0142f084020dfb0e024d9dda012095cf50fa3603f7849ae82d79f196d309d84`.
+SHA-256: `eee0f72ef27c87ef9c502bdb31a3f0282963f6bb5a1cc6d64d601a8ca2646992`.
