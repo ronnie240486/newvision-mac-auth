@@ -6310,6 +6310,24 @@
 
     move-result-object v3
 
+    const/16 v4, 0xb4
+
+    int-to-float v4, v4
+
+    invoke-static {v4}, Landroidx/compose/ui/unit/Dp;->constructor-impl(F)F
+
+    move-result v4
+
+    const/4 v5, 0x0
+
+    const/4 v6, 0x2
+
+    const/4 v7, 0x0
+
+    invoke-static {v3, v4, v5, v6, v7}, Landroidx/compose/foundation/layout/SizeKt;->widthIn-VpY3zN4$default(Landroidx/compose/ui/Modifier;FFILjava/lang/Object;)Landroidx/compose/ui/Modifier;
+
+    move-result-object v3
+
     .line 463
     sget-object v4, Landroidx/compose/foundation/layout/Arrangement;->INSTANCE:Landroidx/compose/foundation/layout/Arrangement;
 

@@ -65,6 +65,7 @@ public final class RenciaGateway {
         String mac = requireMac(rawMac);
         DeviceCheck check = checkDevice(mac);
         if (!check.allowed) throw new IllegalStateException("Acesso indisponível");
+        RenciaExpiryBridge.set(check.expiration);
 
         JSONObject response = get("/api/guim.php?mac=" + encode(mac));
         JSONArray data = response.optJSONArray("data");
