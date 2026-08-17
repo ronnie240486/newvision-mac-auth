@@ -35,7 +35,6 @@ public final class ProfileStore {
 
     public static String greeting(String legacyName) {
         String name = getName();
-        if (name.isEmpty()) name = legacyName == null ? "" : legacyName.trim();
         return name.isEmpty() ? "Bem-vindo" : "Olá, " + name;
     }
 
