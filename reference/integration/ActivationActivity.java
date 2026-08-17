@@ -160,14 +160,9 @@ public final class ActivationActivity extends Activity {
         if (opening || isFinishing()) return;
         opening = true;
         try {
-            Class<?> destination;
-            if (ProfileStore.getName().isEmpty()) {
-                destination = ProfileActivity.class;
-            } else {
-                destination = Class.forName("com.iptv.cliente.MainActivity");
-            }
+            Class<?> destination = ProfileActivity.class;
             Intent intent = new Intent(this, destination);
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
             finish();
         } catch (Throwable ignored) {
