@@ -111,6 +111,7 @@ public final class RenciaLoginBridge {
                     Object holder = holderType.getField("INSTANCE").get(null);
                     Object session = holderType.getMethod("sessionOrNull").invoke(holder);
                     if (session != null) {
+                        RenciaExpiryBridge.fetchCurrent();
                         new Handler(Looper.getMainLooper()).post(() -> {
                             if (onReady != null) onReady.run();
                         });
