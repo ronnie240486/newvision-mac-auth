@@ -1,7 +1,8 @@
-.DS_Store
-*.keystore
-*.jks
-local.properties
-build/
-.gradle/
-.idea/
+# APKs são publicados como assets de Release, não no histórico do Git.
+*.apk
+*.aab
+*.apks
+# Saídas locais de apktool/build.
+/build/
+/out/
+/tmp/

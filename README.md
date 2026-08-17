@@ -1,35 +1,49 @@
-# New Vision — análise e preparação para autenticação por MAC
+# NewVision — autenticação MAC e perfis
 
-Este repositório privado contém a análise do APK `NewVision1.0.20.apk`, os artefatos de reconstrução e a especificação para substituir o formulário de usuário/senha por um identificador MAC de 12 caracteres, **sem contornar a autenticação do provedor**.
+Este repositório privado contém as fontes, patches Smali, classes de integração, assets de avatar e documentação usados para reconstruir o APK Android `NewVision1.0.20.apk` com autenticação por MAC pelo backend Rencia.
 
-## Situação atual
+> O GitHub guarda o código-fonte e os assets editáveis. O APK contém uma cópia compilada desses mesmos arquivos porque o aplicativo precisa levá-los dentro do pacote para funcionar offline e ser instalado na TV Box ou no celular.
 
-O APK foi decodificado e reconstruído com sucesso para validação estrutural. A tela atual é composta em Jetpack Compose e mantém dois valores no `LoginViewModel.UiState`: `username` e `password`. A camada de rede usa uma interface Retrofit chamada `XtreamApi`; o método `login` envia os campos `username` e `password` para `player_api.php`, e os endpoints posteriores reutilizam o mesmo par de campos.
-
-Por esse motivo, apenas trocar os rótulos para “MAC” não implementaria autenticação MAC. Para finalizar a alteração de forma funcional, é necessário informar o **URL do portal MAC** e o contrato de autenticação autorizado pelo proprietário do serviço. Um portal MAC normalmente não é intercambiável com o endpoint Xtream já embutido no APK.
-
-## Conteúdo
+## Conteúdo principal
 
 | Caminho | Conteúdo |
 |---|---|
-| `docs/ANALISE.md` | Resultado da inspeção do APK e evidências técnicas. |
-| `docs/PLANO_MAC.md` | Contrato proposto para a próxima etapa, incluindo validação do MAC. |
-| `reference/MacAddressValidator.kt` | Validador independente para MAC de 12 dígitos hexadecimais. |
-| `decompiled/sources/` | Fontes Java gerados pelo JADX para consulta e manutenção. |
-| `decompiled/smali/login/` | Bytecode smali das classes centrais da tela e do fluxo de login. |
-| `decompiled/smali/data/` | Contratos de API e persistência relacionados à sessão. |
-| `artifacts/` | APK original e reconstrução unsigned para comparação estrutural. |
+| `reference/integration/` | Fontes Java de ativação MAC, sessão Rencia/Xtream, perfis, seletor de cor e deduplicação. |
+| `assets/avatars/` | Os 15 avatares completos usados pela tela “Quem está assistindo?”, em WebP otimizado. Nenhum avatar foi removido. |
+| `scripts/optimize_avatars.py` | Rotina que redimensiona os avatares para no máximo 720 px e converte para WebP. |
+| `scripts/apply_optimized_avatars.py` | Copia os assets otimizados para os recursos do APK mantendo os nomes `profile_avatar_*`. |
+| `decompiled/smali/` | Fontes Smali decodificadas e patches do aplicativo original. |
+| `docs/AVATAR_ASSETS.md` | Manifesto de dimensões, tamanhos e hashes dos assets. |
+| `docs/SETTINGS_PROFILE_FIX.md` | Registro da correção de Configurações e do botão Perfil no SideNav. |
+| `artifacts/` | Apenas arquivos auxiliares pequenos; APKs grandes são publicados como assets de Releases. |
+
+## Avatares
+
+A coleção contém cinco avatares masculinos, cinco femininos e cinco adicionais. Os nomes abaixo são os nomes usados em tempo de execução pela classe `ProfileActivity`:
+
+`profile_avatar_male_01_explorer`, `profile_avatar_male_02_suit`, `profile_avatar_male_03_gamer`, `profile_avatar_male_04_aviator`, `profile_avatar_male_05_athlete`, `profile_avatar_female_01_professional`, `profile_avatar_female_02_artist`, `profile_avatar_female_03_executive`, `profile_avatar_female_04_traveler`, `profile_avatar_female_05_silver`, `profile_avatar_arachnid`, `profile_avatar_night`, `profile_avatar_fairy`, `profile_avatar_robot` e `profile_avatar_princess`.
+
+As imagens originais tinham resolução de 2048×2048 px e estavam duplicadas com dois prefixos diferentes. A versão otimizada mantém todos os 15 avatares únicos, usa no máximo 720×720 px e evita as cópias redundantes.
 
 ## Reconstrução local
 
-A reconstrução foi feita com apktool 3.0.3. O resultado é unsigned e serve para inspeção; para instalar em um dispositivo é necessário assinar o APK com uma chave de desenvolvimento ou de publicação pertencente ao proprietário do aplicativo.
+A reconstrução exige o APK original, apktool 3.0.3, Java, `zipalign`, `apksigner` e os DEX auxiliares gerados a partir das fontes de integração. O fluxo geral é:
 
 ```bash
+python3 scripts/optimize_avatars.py
+python3 scripts/apply_optimized_avatars.py
 java -jar apktool_3.0.3.jar b decoded -o NewVision-rebuilt-unsigned.apk
+zipalign -p -f 4 NewVision-rebuilt-unsigned.apk NewVision-aligned.apk
+apksigner sign --v2-signing-enabled true --v3-signing-enabled true \
+  --out NewVision-signed.apk NewVision-aligned.apk
 ```
 
-A alteração para MAC **não está fingindo estar concluída** neste estado, porque o backend exato ainda não foi especificado. O próximo passo correto é implementar um adaptador autorizado para o portal informado e atualizar também a criação da sessão, a persistência e os endpoints de catálogo.
+Os APKs instaláveis são distribuídos na página de [Releases](https://github.com/ronnie240486/newvision-mac-auth/releases), e não como arquivos versionados no Git, porque o limite de arquivos do GitHub é inadequado para binários desse tamanho.
 
-## Próximo dado necessário
+## Funcionalidades integradas
 
-Para concluir a implementação, forneça o endereço do portal MAC, o formato esperado do identificador (com ou sem `:`) e a documentação ou exemplo autorizado da requisição de autenticação. Não inclua senhas reais no repositório.
+O aplicativo usa o MAC do aparelho para consultar o backend Rencia, aguarda autorização por polling e cria a sessão Xtream com os dados autorizados. Após a ativação, a tela de perfis aparece na abertura; o botão Perfil fica acima de Configurações no menu lateral; a paleta de cores é persistente; e a seção de filmes recentes remove duplicatas.
+
+A assinatura das builds de teste é diferente da assinatura original do aplicativo. Por isso, antes de instalar uma build de teste, pode ser necessário desinstalar a versão anterior.
+
+Não inclua senhas reais, tokens ou credenciais de provedores neste repositório.

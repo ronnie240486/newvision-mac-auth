@@ -5393,6 +5393,47 @@
 
     if-eqz v18, :cond_24
 
+    .line 171
+    new-instance v5, Lcom/iptv/cliente/ui/components/SideNavKt$ProfileClick;
+
+    invoke-direct {v5}, Lcom/iptv/cliente/ui/components/SideNavKt$ProfileClick;-><init>()V
+
+    check-cast v5, Lkotlin/jvm/functions/Function0;
+
+    new-instance v7, Lcom/iptv/cliente/ui/components/SideIconStyle$StandardIcon;
+
+    sget-object v8, Landroidx/compose/material/icons/Icons;->INSTANCE:Landroidx/compose/material/icons/Icons;
+
+    invoke-virtual {v8}, Landroidx/compose/material/icons/Icons;->getDefault()Landroidx/compose/material/icons/Icons$Filled;
+
+    move-result-object v8
+
+    invoke-static {v8}, Landroidx/compose/material/icons/filled/PersonKt;->getPerson(Landroidx/compose/material/icons/Icons$Filled;)Landroidx/compose/ui/graphics/vector/ImageVector;
+
+    move-result-object v8
+
+    invoke-direct {v7, v8}, Lcom/iptv/cliente/ui/components/SideIconStyle$StandardIcon;-><init>(Landroidx/compose/ui/graphics/vector/ImageVector;)V
+
+    check-cast v7, Lcom/iptv/cliente/ui/components/SideIconStyle;
+
+    invoke-static {v15}, Lcom/iptv/cliente/ui/components/SideNavKt;->SideNav$lambda$1(Landroidx/compose/runtime/MutableState;)Z
+
+    move-result v10
+
+    and-int v8, v4, v16
+
+    or-int/lit16 v13, v8, 0x1b0
+
+    const-string v8, "Perfil"
+
+    const/4 v9, 0x0
+
+    move-object v11, v5
+
+    move-object v12, v0
+
+    invoke-static/range {v7 .. v13}, Lcom/iptv/cliente/ui/components/SideNavKt;->SideItem(Lcom/iptv/cliente/ui/components/SideIconStyle;Ljava/lang/String;ZZLkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
+
     .line 173
     new-instance v5, Lcom/iptv/cliente/ui/components/SideIconStyle$StandardIcon;
 

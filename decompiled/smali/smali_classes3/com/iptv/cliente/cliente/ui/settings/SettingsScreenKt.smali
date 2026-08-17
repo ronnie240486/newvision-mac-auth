@@ -7740,6 +7740,36 @@
 
     invoke-static/range {v0 .. v5}, Landroidx/compose/foundation/lazy/LazyListScope;->item$default(Landroidx/compose/foundation/lazy/LazyListScope;Ljava/lang/Object;Ljava/lang/Object;Lkotlin/jvm/functions/Function3;ILjava/lang/Object;)V
 
+    move-object v7, p0
+
+    new-instance v0, Lcom/iptv/cliente/ui/settings/SettingsScreenKt$SettingsMenu$1$1$6;
+
+    invoke-direct {v0, v7, p1}, Lcom/iptv/cliente/ui/settings/SettingsScreenKt$SettingsMenu$1$1$6;-><init>(Lcom/iptv/cliente/ui/settings/Panel;Lkotlin/jvm/functions/Function1;)V
+
+    const v1, 0x7a1e0031
+
+    const/4 v2, 0x1
+
+    invoke-static {v1, v2, v0}, Landroidx/compose/runtime/internal/ComposableLambdaKt;->composableLambdaInstance(IZLjava/lang/Object;)Landroidx/compose/runtime/internal/ComposableLambda;
+
+    move-result-object v0
+
+    move-object v3, v0
+
+    check-cast v3, Lkotlin/jvm/functions/Function3;
+
+    const/4 v4, 0x3
+
+    const/4 v5, 0x0
+
+    const/4 v1, 0x0
+
+    const/4 v2, 0x0
+
+    move-object v0, p2
+
+    invoke-static/range {v0 .. v5}, Landroidx/compose/foundation/lazy/LazyListScope;->item$default(Landroidx/compose/foundation/lazy/LazyListScope;Ljava/lang/Object;Ljava/lang/Object;Lkotlin/jvm/functions/Function3;ILjava/lang/Object;)V
+
     .line 213
     sget-object p0, Lkotlin/Unit;->INSTANCE:Lkotlin/Unit;
 
