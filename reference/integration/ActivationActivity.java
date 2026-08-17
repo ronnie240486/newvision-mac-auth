@@ -133,20 +133,12 @@ public final class ActivationActivity extends Activity {
                     scheduleNext();
                     return;
                 }
-                postStatus("Aparelho autorizado. Baixando sua lista M3U...");
-                RenciaGateway.RenciaAccess access;
-                if (check.urlM3u8 != null && !check.urlM3u8.trim().isEmpty()) {
-                    access = new RenciaGateway.RenciaAccess(code, "", "", "", "m3u", check.urlM3u8, check.urlEpg);
-                } else {
-                    access = gateway.loadAccess(code);
-                }
-                if (access.urlM3u8 != null && !access.urlM3u8.trim().isEmpty()) {
-                    access = M3uXtreamBridge.start(access.mac, access.urlM3u8);
-                }
+                postStatus("Aparelho autorizado. Abrindo sua lista...");
+                RenciaGateway.RenciaAccess access = gateway.loadAccess(code);
                 try {
                     DirectM3uSession.activate(access);
                     RenciaCredentialCache.set(access);
-                    postStatus("Lista carregada. Abrindo canais, filmes e séries...");
+                    postStatus("Sessão carregada. Abrindo canais, filmes e séries...");
                     handler.postDelayed(this::openMain, 350L);
                 } catch (Exception sessionError) {
                     postStatus("A lista foi autorizada, mas não pôde ser aberta. Tentando novamente...");
