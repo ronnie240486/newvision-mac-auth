@@ -1,21 +1,17 @@
 package com.iptv.newvision.integration;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.HashSet;
 
-/**
- * Adapter used by the sports screen without changing the Compose method
- * signatures. The existing LiveViewModel EPG pipeline remains the source of
- * truth; this class only asks it to load entries and formats current/next
- * titles for the compact sports row.
- */
+/** Adapter that exposes the existing LiveViewModel EPG map to the sports row. */
 public final class SportsEpgBridge {
     private static volatile Object state;
     private static volatile Object viewModel;
-    private static final Set<Integer> requested = new HashSet<>();
+    private static final Map<Integer, Long> requestedAt = new HashMap<>();
+    private static final long RETRY_WINDOW_MS = 5000L;
 
     private SportsEpgBridge() {}
 
@@ -28,21 +24,23 @@ public final class SportsEpgBridge {
     }
 
     public static synchronized void request(int streamId) {
-        if (requested.contains(streamId)) return;
-        requested.add(streamId);
+        long now = System.currentTimeMillis();
+        Long last = requestedAt.get(streamId);
+        if (last != null && now - last < RETRY_WINDOW_MS) return;
         Object vm = viewModel;
         if (vm == null) return;
         try {
             Method method = vm.getClass().getMethod("loadEpgFor", int.class);
+            requestedAt.put(streamId, now);
             method.invoke(vm, streamId);
         } catch (Throwable ignored) {
-            // The channel remains playable if an older backend/player has no EPG.
+            requestedAt.remove(streamId);
         }
     }
 
     public static String displayName(int streamId, String channelName) {
         request(streamId);
-        String base = channelName == null ? "" : channelName;
+        String base = channelName == null ? "" : channelName.trim();
         String epg = label(streamId);
         if (epg.isEmpty()) return base;
         return base + "\n" + epg;
@@ -55,11 +53,31 @@ public final class SportsEpgBridge {
             Method getter = currentState.getClass().getMethod("getEpgByStream");
             Object raw = getter.invoke(currentState);
             if (!(raw instanceof Map)) return "";
-            Object entries = ((Map<?, ?>) raw).get(streamId);
-            if (!(entries instanceof List) || ((List<?>) entries).isEmpty()) return "";
-            List<?> list = (List<?>) entries;
-            String now = title(list.get(0));
-            String next = list.size() > 1 ? title(list.get(1)) : "";
+            Map<?, ?> map = (Map<?, ?>) raw;
+            Object entries = map.get(Integer.valueOf(streamId));
+            if (entries == null) entries = map.get(String.valueOf(streamId));
+            if (entries == null) return "";
+
+            String now = "";
+            String next = "";
+            if (entries instanceof Iterable) {
+                int index = 0;
+                for (Object item : (Iterable<?>) entries) {
+                    String title = title(item);
+                    if (!title.isEmpty()) {
+                        if (index == 0) now = title;
+                        else if (index == 1) { next = title; break; }
+                        index++;
+                    }
+                }
+            } else if (entries.getClass().isArray()) {
+                int length = Array.getLength(entries);
+                for (int i = 0; i < length && i < 2; i++) {
+                    String title = title(Array.get(entries, i));
+                    if (i == 0) now = title;
+                    else next = title;
+                }
+            }
             if (now.isEmpty() && next.isEmpty()) return "";
             if (now.isEmpty()) return "Próximo: " + next;
             if (next.isEmpty()) return "Agora: " + now;

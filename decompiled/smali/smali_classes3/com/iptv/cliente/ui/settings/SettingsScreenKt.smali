@@ -2624,8 +2624,22 @@
 
     const/16 v15, 0x30
 
+    invoke-static {}, Lcom/iptv/newvision/integration/RenciaExpiryBridge;->getFormatted()Ljava/lang/String;
+
+    move-result-object v11
+
+    invoke-virtual {v11}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v16
+
+    if-nez v16, :cond_expiry_fallback
+
+    goto :cond_expiry_ready
+
+    :cond_expiry_fallback
     move-object/from16 v11, v35
 
+    :cond_expiry_ready
     invoke-static/range {v9 .. v15}, Lcom/iptv/cliente/ui/settings/SettingsScreenKt;->InfoLine-Bx497Mc(Landroidx/compose/ui/graphics/vector/ImageVector;Ljava/lang/String;Ljava/lang/String;JLandroidx/compose/runtime/Composer;I)V
 
     .line 338
