@@ -181,7 +181,7 @@ public final class ActivationActivity extends Activity {
     private void shareCode() {
         Intent share = new Intent(Intent.ACTION_SEND);
         share.setType("text/plain");
-        share.putExtra(Intent.EXTRA_SUBJECT, "Código do aparelho New Vision");
+        share.putExtra(Intent.EXTRA_SUBJECT, "Código do aparelho Optimus");
         share.putExtra(Intent.EXTRA_TEXT, code);
         startActivity(Intent.createChooser(share, "Enviar código do aparelho"));
     }
