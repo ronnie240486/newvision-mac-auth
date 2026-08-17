@@ -44,7 +44,7 @@ public final class SportsEpgBridge {
         request(streamId);
         String base = channelName == null ? "" : channelName.trim();
         String epg = label(streamId);
-        if (epg.isEmpty()) return base;
+        if (!isReadableLabel(epg)) return base;
         return base + "\n" + epg;
     }
 
@@ -106,6 +106,18 @@ public final class SportsEpgBridge {
             }
         }
         return "";
+    }
+
+    private static boolean isReadableLabel(String text) {
+        if (text == null) return false;
+        String normalized = text.replace("Agora:", "")
+                .replace("Próximo:", "")
+                .replace("|", "")
+                .trim();
+        if (normalized.isEmpty()) return false;
+        if (normalized.matches(".*[A-Z]{5,}[0-9][A-Z0-9]{3,}.*")) return false;
+        if (normalized.matches(".*[A-Fa-f0-9]{8,}.*")) return false;
+        return true;
     }
 
     private static boolean isReadableTitle(String text) {
