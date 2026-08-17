@@ -130,7 +130,7 @@
 .end method
 
 .method public static final ContentRow-jIwJxvA(Ljava/lang/String;Ljava/util/List;Landroidx/compose/ui/focus/FocusRequester;FLkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function4;Landroidx/compose/runtime/Composer;II)V
-    .locals 33
+    .locals 36
     .annotation system Ldalvik/annotation/Signature;
         value = {
             "<T:",
@@ -727,6 +727,20 @@
 
     move-result-wide v17
 
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v33
+
+    invoke-static/range {v33 .. v33}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v33
+
+    invoke-static/range {v33 .. v33}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v34
+
+    move-wide/from16 v17, v34
+
     const/16 v20, 0x2
 
     const/16 v21, 0x0
@@ -1151,7 +1165,7 @@
 .end method
 
 .method public static final PosterTile-iHT-50w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Double;FFLandroidx/compose/ui/focus/FocusRequester;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)V
-    .locals 45
+    .locals 48
     .annotation system Ldalvik/annotation/Signature;
         value = {
             "(",
@@ -2837,6 +2851,20 @@
     invoke-virtual {v1}, Landroidx/compose/material3/ColorScheme;->getPrimary-0d7_KjU()J
 
     move-result-wide v18
+
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v40
+
+    invoke-static/range {v40 .. v40}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v40
+
+    invoke-static/range {v40 .. v40}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v46
+
+    move-wide/from16 v18, v46
 
     .line 115
     sget-object v1, Landroidx/compose/ui/graphics/Color;->Companion:Landroidx/compose/ui/graphics/Color$Companion;

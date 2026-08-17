@@ -5283,7 +5283,7 @@
 .end method
 
 .method public static final StreamingLogosRow-942rkJo(Ljava/util/List;Lkotlin/jvm/functions/Function1;FLjava/lang/String;Landroidx/compose/runtime/Composer;II)V
-    .locals 32
+    .locals 35
     .annotation system Ldalvik/annotation/Signature;
         value = {
             "(",
@@ -6007,6 +6007,20 @@
     invoke-virtual {v7}, Landroidx/compose/material3/ColorScheme;->getPrimary-0d7_KjU()J
 
     move-result-wide v16
+
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v32
+
+    invoke-static/range {v32 .. v32}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v32
+
+    invoke-static/range {v32 .. v32}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v33
+
+    move-wide/from16 v16, v33
 
     const/16 v19, 0x2
 

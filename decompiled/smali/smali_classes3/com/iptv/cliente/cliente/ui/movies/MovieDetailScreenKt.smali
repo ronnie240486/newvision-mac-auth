@@ -7101,7 +7101,7 @@
 .end method
 
 .method private static final PrimaryGreenButton(Ljava/lang/String;Landroidx/compose/ui/graphics/vector/ImageVector;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)V
-    .locals 31
+    .locals 34
     .annotation system Ldalvik/annotation/Signature;
         value = {
             "(",
@@ -7357,6 +7357,20 @@
     invoke-virtual {v6}, Landroidx/compose/material3/ColorScheme;->getPrimary-0d7_KjU()J
 
     move-result-wide v17
+
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v31
+
+    invoke-static/range {v31 .. v31}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v31
+
+    invoke-static/range {v31 .. v31}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v32
+
+    move-wide/from16 v17, v32
 
     const/16 v20, 0x2
 

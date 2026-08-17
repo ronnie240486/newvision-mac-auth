@@ -3620,7 +3620,7 @@
 .end method
 
 .method private static final ContinueWatchingRow$lambda$40$lambda$39$lambda$36(Lcom/iptv/cliente/data/WatchProgress;)Ljava/lang/Object;
-    .locals 1
+    .locals 5
 
     const-string v0, "it"
 
@@ -3628,6 +3628,58 @@
 
     .line 517
     invoke-virtual {p0}, Lcom/iptv/cliente/data/WatchProgress;->getId()Ljava/lang/String;
+
+    move-result-object v0
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    const-string v0, "#"
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {p0}, Lcom/iptv/cliente/data/WatchProgress;->getType()Lcom/iptv/cliente/data/WatchProgress$Type;
+
+    move-result-object v0
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+
+    const-string v0, "#"
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {p0}, Lcom/iptv/cliente/data/WatchProgress;->getTitle()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v0, "#"
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-static {p0}, Ljava/lang/System;->identityHashCode(Ljava/lang/Object;)I
+
+    move-result v0
+
+    invoke-static {v0}, Ljava/lang/Integer;->toHexString(I)Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v0, "#"
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {p0}, Lcom/iptv/cliente/data/WatchProgress;->getPlaybackUrl()Ljava/lang/String;
+
+    move-result-object p0
+
+    invoke-virtual {v1, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object p0
 
@@ -3659,7 +3711,7 @@
 .end method
 
 .method private static final FeaturedCard(Lcom/iptv/cliente/data/model/VodStream;Ljava/lang/String;Landroidx/compose/ui/focus/FocusRequester;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
-    .locals 47
+    .locals 50
     .annotation system Ldalvik/annotation/Signature;
         value = {
             "(",
@@ -4643,17 +4695,7 @@
     if-eqz v3, :cond_e
 
     .line 276
-    new-instance v3, Ljava/lang/StringBuilder;
-
-    const-string v4, "Bem-vindo, "
-
-    invoke-direct {v3, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
-    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v3
-
-    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-static {v2}, Lcom/iptv/newvision/integration/ProfileStore;->greeting(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v3
 
@@ -4669,6 +4711,20 @@
     invoke-virtual {v4}, Landroidx/compose/material3/ColorScheme;->getPrimary-0d7_KjU()J
 
     move-result-wide v5
+
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v47
+
+    invoke-static/range {v47 .. v47}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v47
+
+    invoke-static/range {v47 .. v47}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v48
+
+    move-wide/from16 v5, v48
 
     .line 278
     sget-object v4, Landroidx/compose/material3/MaterialTheme;->INSTANCE:Landroidx/compose/material3/MaterialTheme;
@@ -5157,6 +5213,20 @@
     invoke-virtual {v4}, Landroidx/compose/material3/ColorScheme;->getPrimary-0d7_KjU()J
 
     move-result-wide v19
+
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v47
+
+    invoke-static/range {v47 .. v47}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v47
+
+    invoke-static/range {v47 .. v47}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v48
+
+    move-wide/from16 v19, v48
 
     const/16 v22, 0x2
 
@@ -5773,6 +5843,20 @@
     invoke-virtual {v3}, Landroidx/compose/material3/ColorScheme;->getPrimary-0d7_KjU()J
 
     move-result-wide v5
+
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v47
+
+    invoke-static/range {v47 .. v47}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v47
+
+    invoke-static/range {v47 .. v47}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v48
+
+    move-wide/from16 v5, v48
 
     const/4 v8, 0x2
 
@@ -7805,7 +7889,7 @@
 .end method
 
 .method private static final WelcomeHero(Ljava/lang/String;Ljava/lang/String;Landroidx/compose/ui/focus/FocusRequester;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
-    .locals 31
+    .locals 34
     .annotation system Ldalvik/annotation/Signature;
         value = {
             "(",
@@ -8034,6 +8118,20 @@
     invoke-virtual {v7}, Landroidx/compose/material3/ColorScheme;->getPrimary-0d7_KjU()J
 
     move-result-wide v18
+
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v31
+
+    invoke-static/range {v31 .. v31}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v31
+
+    invoke-static/range {v31 .. v31}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v32
+
+    move-wide/from16 v18, v32
 
     const/16 v24, 0xe
 
@@ -8546,17 +8644,7 @@
     goto :goto_8
 
     :cond_12
-    new-instance v4, Ljava/lang/StringBuilder;
-
-    const-string v6, "Ol\u00e1, "
-
-    invoke-direct {v4, v6}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
-    invoke-virtual {v4, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v4
-
-    invoke-virtual {v4}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-static {v1}, Lcom/iptv/newvision/integration/ProfileStore;->greeting(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v4
 
@@ -8575,6 +8663,20 @@
     invoke-virtual {v4}, Landroidx/compose/material3/ColorScheme;->getPrimary-0d7_KjU()J
 
     move-result-wide v8
+
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v31
+
+    invoke-static/range {v31 .. v31}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v31
+
+    invoke-static/range {v31 .. v31}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v32
+
+    move-wide/from16 v8, v32
 
     .line 483
     sget-object v4, Landroidx/compose/material3/MaterialTheme;->INSTANCE:Landroidx/compose/material3/MaterialTheme;
