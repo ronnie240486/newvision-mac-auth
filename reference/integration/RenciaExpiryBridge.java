@@ -50,4 +50,16 @@ public final class RenciaExpiryBridge {
         }
         return value;
     }
+
+    /** Resolves the UI value without ever rendering the literal JSON null. */
+    public static String resolve(String primary) {
+        String value = primary == null ? "" : primary.trim();
+        if (value.isEmpty() || "null".equalsIgnoreCase(value)
+                || "undefined".equalsIgnoreCase(value) || "-".equals(value)
+                || "—".equals(value)) {
+            String panel = getFormatted();
+            return panel == null || panel.isEmpty() ? "Não informado" : panel;
+        }
+        return value;
+    }
 }

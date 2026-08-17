@@ -42,6 +42,14 @@ public final class RenciaGateway {
     public DeviceCheck checkDevice(String rawMac) throws Exception {
         String mac = requireMac(rawMac);
         JSONObject body = get("/api/device/check?mac=" + encode(mac));
+        String expiration = body.optString("expire_date", "").trim();
+        if (isMissing(expiration)) expiration = body.optString("dataExpiracao", "").trim();
+        if (isMissing(expiration)) expiration = body.optString("expireDate", "").trim();
+        JSONObject nested = body.optJSONObject("data");
+        if (isMissing(expiration) && nested != null) {
+            expiration = nested.optString("expire_date", "").trim();
+            if (isMissing(expiration)) expiration = nested.optString("dataExpiracao", "").trim();
+        }
         return new DeviceCheck(
                 body.optBoolean("found", false),
                 body.optBoolean("allowed", false),
@@ -49,7 +57,7 @@ public final class RenciaGateway {
                 body.optString("app", ""),
                 body.optString("urlM3u8", ""),
                 body.optString("urlEpg", ""),
-                body.optString("dataExpiracao", "")
+                isMissing(expiration) ? "" : expiration
         );
     }
 
@@ -170,6 +178,13 @@ public final class RenciaGateway {
     private boolean looksLikeM3u(String value) {
         String lower = value == null ? "" : value.toLowerCase(Locale.ROOT);
         return lower.contains(".m3u") || lower.contains("m3u8") || lower.contains("playlist");
+    }
+
+    private boolean isMissing(String value) {
+        if (value == null) return true;
+        String v = value.trim();
+        return v.isEmpty() || "null".equalsIgnoreCase(v) || "undefined".equalsIgnoreCase(v)
+                || "-".equals(v) || "—".equals(v);
     }
 
     private String requireMac(String rawMac) {
