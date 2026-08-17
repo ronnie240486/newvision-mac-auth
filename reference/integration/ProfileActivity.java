@@ -26,6 +26,10 @@ public final class ProfileActivity extends Activity {
     private int selectedAvatar = 0;
     private LinearLayout root;
     private final String[] avatarNames = {
+            "profile_avatar_male_01_explorer", "profile_avatar_male_02_suit", "profile_avatar_male_03_gamer",
+            "profile_avatar_male_04_aviator", "profile_avatar_male_05_athlete",
+            "profile_avatar_female_01_professional", "profile_avatar_female_02_artist", "profile_avatar_female_03_executive",
+            "profile_avatar_female_04_traveler", "profile_avatar_female_05_silver",
             "profile_avatar_arachnid", "profile_avatar_night", "profile_avatar_fairy",
             "profile_avatar_robot", "profile_avatar_princess"
     };

@@ -10,7 +10,9 @@ import org.json.JSONObject;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /** Perfis locais do espectador; não contém credenciais do painel. */
@@ -37,16 +39,19 @@ public final class ProfileStore {
         SharedPreferences prefs = prefs(context);
         String raw = prefs.getString(PROFILES, "[]");
         ArrayList<Profile> result = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+        Set<String> seenNames = new HashSet<>();
         try {
             JSONArray array = new JSONArray(raw);
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.optJSONObject(i);
                 if (item == null) continue;
-                String id = item.optString("id", "");
+                String id = item.optString("id", "").trim();
                 String name = item.optString("name", "").trim();
-                if (!id.isEmpty() && !name.isEmpty()) {
-                    result.add(new Profile(id, name, item.optInt("avatar", 0)));
-                }
+                String normalizedName = name.toLowerCase(java.util.Locale.ROOT);
+                if (id.isEmpty() || name.isEmpty()) continue;
+                if (!seenIds.add(id) || !seenNames.add(normalizedName)) continue;
+                result.add(new Profile(id, name, item.optInt("avatar", 0)));
             }
         } catch (Throwable ignored) {
         }
