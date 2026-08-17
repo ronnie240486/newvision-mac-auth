@@ -160,12 +160,17 @@ public final class ActivationActivity extends Activity {
         if (opening || isFinishing()) return;
         opening = true;
         try {
-            Class<?> main = Class.forName("com.iptv.cliente.MainActivity");
-            Intent intent = new Intent(this, main);
+            Class<?> destination;
+            if (ProfileStore.getName().isEmpty()) {
+                destination = ProfileActivity.class;
+            } else {
+                destination = Class.forName("com.iptv.cliente.MainActivity");
+            }
+            Intent intent = new Intent(this, destination);
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             startActivity(intent);
             finish();
-        } catch (Exception ignored) {
+        } catch (Throwable ignored) {
             opening = false;
             postStatus("Não foi possível abrir o aplicativo principal.");
         }
