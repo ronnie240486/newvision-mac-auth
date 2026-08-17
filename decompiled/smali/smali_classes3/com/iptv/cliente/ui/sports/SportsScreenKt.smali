@@ -1386,14 +1386,6 @@
 
     move-result-object v2
 
-    invoke-virtual/range {p0 .. p0}, Lcom/iptv/cliente/data/model/LiveStream;->getStreamId()I
-
-    move-result v3
-
-    invoke-static {v3, v2}, Lcom/iptv/newvision/integration/SportsEpgBridge;->displayName(ILjava/lang/String;)Ljava/lang/String;
-
-    move-result-object v2
-
     .line 269
     sget-object v3, Landroidx/compose/ui/graphics/Color;->Companion:Landroidx/compose/ui/graphics/Color$Companion;
 
