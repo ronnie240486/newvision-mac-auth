@@ -7716,6 +7716,8 @@
     invoke-static/range {v3 .. v8}, Landroidx/compose/foundation/lazy/LazyListScope;->item$default(Landroidx/compose/foundation/lazy/LazyListScope;Ljava/lang/Object;Ljava/lang/Object;Lkotlin/jvm/functions/Function3;ILjava/lang/Object;)V
 
     .line 212
+    move-object v8, p0
+
     new-instance v0, Lcom/iptv/cliente/ui/settings/SettingsScreenKt$SettingsMenu$1$1$5;
 
     invoke-direct {v0, p0, p1}, Lcom/iptv/cliente/ui/settings/SettingsScreenKt$SettingsMenu$1$1$5;-><init>(Lcom/iptv/cliente/ui/settings/Panel;Lkotlin/jvm/functions/Function1;)V
@@ -7740,7 +7742,7 @@
 
     invoke-static/range {v0 .. v5}, Landroidx/compose/foundation/lazy/LazyListScope;->item$default(Landroidx/compose/foundation/lazy/LazyListScope;Ljava/lang/Object;Ljava/lang/Object;Lkotlin/jvm/functions/Function3;ILjava/lang/Object;)V
 
-    move-object v7, p0
+    move-object v7, v8
 
     new-instance v0, Lcom/iptv/cliente/ui/settings/SettingsScreenKt$SettingsMenu$1$1$6;
 
