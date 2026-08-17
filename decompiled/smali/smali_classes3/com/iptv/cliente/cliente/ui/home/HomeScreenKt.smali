@@ -7218,24 +7218,21 @@
 
     invoke-interface {v0}, Landroidx/compose/runtime/Composer;->endReplaceGroup()V
 
-    const/16 v17, 0xc00
+    invoke-virtual {v1}, Lcom/iptv/cliente/ui/components/StreamingBrand;->getKeyword()Ljava/lang/String;
 
-    move-object v2, v3
+    move-result-object v2
 
-    move-object v3, v4
+    const/4 v3, 0x0
 
-    move-object v4, v5
+    invoke-static {v3}, Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;
 
-    move-object v5, v0
+    move-result-object v3
 
-    move-object/from16 p7, v7
+    invoke-interface {v9, v2, v3}, Lkotlin/jvm/functions/Function2;->invoke(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
-    move-object v7, v6
+    const/4 v4, 0x0
 
-    move/from16 v6, v17
-
-    .line 88
-    invoke-static/range {v1 .. v6}, Lcom/iptv/cliente/ui/components/BrandPickerDialogKt;->BrandPickerDialog(Lcom/iptv/cliente/ui/components/StreamingBrand;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
+    invoke-static {v7, v4}, Lcom/iptv/cliente/ui/home/HomeScreenKt;->HomeScreen$lambda$5(Landroidx/compose/runtime/MutableState;Lcom/iptv/cliente/ui/components/StreamingBrand;)V
 
     .line 87
     sget-object v1, Lkotlin/Unit;->INSTANCE:Lkotlin/Unit;
