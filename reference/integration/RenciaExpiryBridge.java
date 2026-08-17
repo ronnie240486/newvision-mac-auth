@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URLEncoder;
 import java.net.URL;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -68,6 +69,14 @@ public final class RenciaExpiryBridge {
         HttpURLConnection connection = null;
         try {
             String base = access.host.trim();
+            try {
+                URI uri = new URI(base);
+                if (uri.getScheme() != null && uri.getAuthority() != null) {
+                    base = uri.getScheme() + "://" + uri.getAuthority() + "/";
+                }
+            } catch (Exception ignored) {
+                // Keep the original host if it is a legacy server representation.
+            }
             if (!base.endsWith("/")) base += "/";
             String endpoint = base + "player_api.php?username="
                     + URLEncoder.encode(access.username, "UTF-8")

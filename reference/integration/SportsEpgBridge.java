@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /** Adapter that exposes the existing LiveViewModel EPG map to the sports row. */
 public final class SportsEpgBridge {
@@ -12,6 +13,7 @@ public final class SportsEpgBridge {
     private static volatile Object viewModel;
     private static final Map<Integer, Long> requestedAt = new HashMap<>();
     private static final long RETRY_WINDOW_MS = 5000L;
+    private static final Pattern TECHNICAL_ID = Pattern.compile("[A-Za-z0-9]{8,}");
 
     private SportsEpgBridge() {}
 
@@ -72,10 +74,13 @@ public final class SportsEpgBridge {
                 }
             } else if (entries.getClass().isArray()) {
                 int length = Array.getLength(entries);
-                for (int i = 0; i < length && i < 2; i++) {
+                int index = 0;
+                for (int i = 0; i < length && index < 2; i++) {
                     String title = title(Array.get(entries, i));
-                    if (i == 0) now = title;
+                    if (title.isEmpty()) continue;
+                    if (index == 0) now = title;
                     else next = title;
+                    index++;
                 }
             }
             if (now.isEmpty() && next.isEmpty()) return "";
@@ -92,14 +97,21 @@ public final class SportsEpgBridge {
         for (String name : new String[]{"getTitle", "getName", "getProgram", "getDescription"}) {
             try {
                 Object value = listing.getClass().getMethod(name).invoke(listing);
-                if (value != null) {
-                    String text = String.valueOf(value).trim();
-                    if (!text.isEmpty()) return text;
-                }
+                    if (value != null) {
+                        String text = String.valueOf(value).trim();
+                        if (!text.isEmpty() && isReadableTitle(text)) return text;
+                    }
             } catch (Throwable ignored) {
                 // Try the next representation used by a provider/model version.
             }
         }
         return "";
+    }
+
+    private static boolean isReadableTitle(String text) {
+        if (text == null || text.length() < 3) return false;
+        if (TECHNICAL_ID.matcher(text).matches() && !text.contains(" ")) return false;
+        if (text.matches("[A-Fa-f0-9]{8,}")) return false;
+        return true;
     }
 }

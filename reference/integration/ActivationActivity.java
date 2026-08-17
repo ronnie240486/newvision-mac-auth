@@ -139,6 +139,7 @@ public final class ActivationActivity extends Activity {
                 RenciaGateway.RenciaAccess access = RenciaCredentialCache.active();
                 try {
                     DirectM3uSession.activate(access);
+                    RenciaExpiryBridge.fetchCurrent();
                     postStatus("Sessão carregada. Abrindo canais, filmes e séries...");
                     handler.postDelayed(this::openMain, 350L);
                 } catch (Exception sessionError) {

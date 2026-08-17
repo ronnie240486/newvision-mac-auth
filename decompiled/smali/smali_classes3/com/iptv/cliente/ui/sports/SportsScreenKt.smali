@@ -1445,7 +1445,7 @@
 
     const/16 v17, 0x0
 
-    const/16 v19, 0x1
+    const/16 v19, 0x2
 
     const v24, 0x30180
 
