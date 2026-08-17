@@ -134,10 +134,11 @@ public final class ActivationActivity extends Activity {
                     return;
                 }
                 postStatus("Aparelho autorizado. Abrindo sua lista...");
-                RenciaGateway.RenciaAccess access = gateway.loadAccess(code);
+                java.util.List<RenciaGateway.RenciaAccess> accesses = gateway.loadAccesses(code);
+                RenciaCredentialCache.setAll(this, accesses);
+                RenciaGateway.RenciaAccess access = RenciaCredentialCache.active();
                 try {
                     DirectM3uSession.activate(access);
-                    RenciaCredentialCache.set(access);
                     postStatus("Sessão carregada. Abrindo canais, filmes e séries...");
                     handler.postDelayed(this::openMain, 350L);
                 } catch (Exception sessionError) {

@@ -11,6 +11,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -51,24 +53,25 @@ public final class RenciaGateway {
         );
     }
 
-    /**
-     * Valida o aparelho e resolve a primeira fonte autorizada devolvida pelo painel.
-     * A senha devolvida pelo painel é mantida somente no objeto em memória.
-     */
+    /** Compatibilidade: retorna a primeira lista autorizada. */
     public RenciaAccess loadAccess(String rawMac) throws Exception {
+        List<RenciaAccess> all = loadAccesses(rawMac);
+        if (all.isEmpty()) throw new IllegalStateException("Nenhuma lista autorizada");
+        return all.get(0);
+    }
+
+    /** Carrega até seis listas autorizadas, preservando a ordem definida no painel. */
+    public List<RenciaAccess> loadAccesses(String rawMac) throws Exception {
         String mac = requireMac(rawMac);
         DeviceCheck check = checkDevice(mac);
-        if (!check.allowed) {
-            throw new IllegalStateException("Acesso indisponível");
-        }
+        if (!check.allowed) throw new IllegalStateException("Acesso indisponível");
 
         JSONObject response = get("/api/guim.php?mac=" + encode(mac));
         JSONArray data = response.optJSONArray("data");
-        if (data == null || data.length() == 0) {
-            throw new IllegalStateException("Nenhuma lista autorizada");
-        }
+        if (data == null || data.length() == 0) throw new IllegalStateException("Nenhuma lista autorizada");
 
-        for (int i = 0; i < data.length(); i++) {
+        List<RenciaAccess> result = new ArrayList<>();
+        for (int i = 0; i < data.length() && result.size() < 6; i++) {
             JSONObject item = data.optJSONObject(i);
             if (item == null) continue;
             String url = item.optString("url", "").trim();
@@ -86,19 +89,18 @@ public final class RenciaGateway {
             if (playlist.isEmpty()) playlist = check.urlM3u8;
             boolean hasXtream = !url.isEmpty() && !username.isEmpty() && !password.isEmpty();
             boolean hasM3u = !playlist.isEmpty();
-            if (hasXtream || hasM3u) {
-                return new RenciaAccess(
-                        mac,
-                        url,
-                        username,
-                        password,
-                        hasM3u && !hasXtream ? "m3u" : type,
-                        playlist,
-                        check.urlEpg
-                );
-            }
+            if (!hasXtream && !hasM3u) continue;
+            String name = item.optString("playlist_name", "").trim();
+            if (name.isEmpty()) name = item.optString("name", "").trim();
+            if (name.isEmpty()) name = item.optString("title", "").trim();
+            if (name.isEmpty()) name = "Lista " + (result.size() + 1);
+            result.add(new RenciaAccess(
+                    mac, url, username, password,
+                    hasM3u && !hasXtream ? "m3u" : type,
+                    playlist, check.urlEpg, result.size(), name));
         }
-        throw new IllegalStateException("Fonte autorizada incompleta");
+        if (result.isEmpty()) throw new IllegalStateException("Fonte autorizada incompleta");
+        return result;
     }
 
     public JSONObject listNotifications(String rawMac) throws Exception {
@@ -250,9 +252,16 @@ public final class RenciaGateway {
         public final String type;
         public final String urlM3u8;
         public final String urlEpg;
+        public final int index;
+        public final String name;
 
         public RenciaAccess(String mac, String host, String username, String password,
                             String type, String urlM3u8, String urlEpg) {
+            this(mac, host, username, password, type, urlM3u8, urlEpg, 0, "Lista 1");
+        }
+
+        public RenciaAccess(String mac, String host, String username, String password,
+                            String type, String urlM3u8, String urlEpg, int index, String name) {
             this.mac = mac;
             this.host = host;
             this.username = username;
@@ -260,6 +269,8 @@ public final class RenciaGateway {
             this.type = type;
             this.urlM3u8 = urlM3u8;
             this.urlEpg = urlEpg;
+            this.index = index;
+            this.name = name == null || name.trim().isEmpty() ? "Lista " + (index + 1) : name.trim();
         }
     }
 }

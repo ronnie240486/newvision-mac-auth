@@ -47,3 +47,7 @@ O aplicativo usa o MAC do aparelho para consultar o backend Rencia, aguarda auto
 A assinatura das builds de teste é diferente da assinatura original do aplicativo. Por isso, antes de instalar uma build de teste, pode ser necessário desinstalar a versão anterior.
 
 Não inclua senhas reais, tokens ou credenciais de provedores neste repositório.
+
+## Múltiplas listas
+
+O APK aceita até seis fontes autorizadas no array `data` devolvido por `/api/guim.php?mac=...`. A nova opção **Configurações → Listas** permite alternar manualmente entre as fontes recebidas. A posição ativa é persistida localmente, e a ponte Rencia tenta a próxima fonte quando a abertura ou autenticação da fonte atual falha. O contrato completo está em `docs/MULTI_LIST_FAILOVER.md`.

@@ -21,8 +21,8 @@ public final class RenciaLoginBridge {
 
         new Thread(() -> {
             try {
-                RenciaGateway.RenciaAccess access = gateway.loadAccess(mac);
-                RenciaCredentialCache.set(access);
+                RenciaCredentialCache.bind(getApplication());
+                RenciaCredentialCache.setAll(getApplication(), gateway.loadAccesses(mac));
                 new Handler(Looper.getMainLooper()).post(() -> invokeAttempt(loginViewModel));
             } catch (Exception ignored) {
                 postError(loginViewModel, "Aparelho não cadastrado ou acesso indisponível.");
@@ -31,11 +31,16 @@ public final class RenciaLoginBridge {
     }
 
     public static void startAuthorizedLogin(final Runnable onReady, final Runnable onFailure) {
+        startAuthorizedLoginInternal(onReady, onFailure, 0);
+    }
+
+    private static void startAuthorizedLoginInternal(final Runnable onReady, final Runnable onFailure, final int attempt) {
         new Handler(Looper.getMainLooper()).post(() -> {
             try {
                 Class<?> appType = Class.forName("com.iptv.cliente.App");
                 Object companion = appType.getField("Companion").get(null);
                 Object app = companion.getClass().getMethod("getInstance").invoke(companion);
+                RenciaCredentialCache.bind((android.content.Context) app);
                 Object preferences = app.getClass().getMethod("getPreferences").invoke(app);
                 Class<?> viewModelType = Class.forName("com.iptv.cliente.ui.login.LoginViewModel");
                 Constructor<?> selected = null;
@@ -49,11 +54,53 @@ public final class RenciaLoginBridge {
                 selected.setAccessible(true);
                 Object viewModel = selected.newInstance(preferences);
                 invokeAttempt(viewModel);
-                waitForSession(onReady, onFailure, 0);
+                waitForSession(onReady, () -> failover(onReady, onFailure, attempt), 0);
             } catch (Exception ignored) {
-                if (onFailure != null) onFailure.run();
+                failover(onReady, onFailure, attempt);
             }
         });
+    }
+
+    public static void switchToList(final int index, final Runnable onReady, final Runnable onFailure) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (!RenciaCredentialCache.select(index)) {
+                if (onFailure != null) onFailure.run();
+                return;
+            }
+            clearSession();
+            startAuthorizedLoginInternal(onReady, onFailure, 0);
+        });
+    }
+
+    private static void failover(final Runnable onReady, final Runnable onFailure, final int attempt) {
+        if (attempt >= Math.max(0, RenciaCredentialCache.count() - 1)) {
+            if (onFailure != null) onFailure.run();
+            return;
+        }
+        if (RenciaCredentialCache.nextAfterFailure() == null) {
+            if (onFailure != null) onFailure.run();
+            return;
+        }
+        clearSession();
+        startAuthorizedLoginInternal(onReady, onFailure, attempt + 1);
+    }
+
+    private static void clearSession() {
+        try {
+            Class<?> holderType = Class.forName("com.iptv.cliente.data.SessionHolder");
+            Object holder = holderType.getField("INSTANCE").get(null);
+            holderType.getMethod("clear").invoke(holder);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static android.app.Application getApplication() {
+        try {
+            Class<?> type = Class.forName("android.app.ActivityThread");
+            return (android.app.Application) type.getMethod("currentApplication").invoke(null);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private static void waitForSession(final Runnable onReady, final Runnable onFailure, final int attempt) {
