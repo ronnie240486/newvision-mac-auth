@@ -1244,7 +1244,7 @@
 .end method
 
 .method public static final CategoryChipsRow-wBJOh4Y(Ljava/util/List;Ljava/lang/String;Lkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;JJLandroidx/compose/runtime/Composer;II)V
-    .locals 28
+    .locals 31
     .annotation system Ldalvik/annotation/Signature;
         value = {
             "(",
@@ -1333,6 +1333,22 @@
     move-wide/from16 v24, p4
 
     :goto_1
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v30
+
+    invoke-static/range {v30 .. v30}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v30
+
+    invoke-static/range {v30 .. v30}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v28
+
+    move-wide/from16 v24, v28
+
+    move-wide/from16 v26, v28
+
     and-int/lit8 v1, p10, 0x20
 
     if-eqz v1, :cond_2
@@ -2958,7 +2974,7 @@
 .end method
 
 .method public static final CategorySideList-wBJOh4Y(Ljava/util/List;Ljava/lang/String;Lkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;JJLandroidx/compose/runtime/Composer;II)V
-    .locals 36
+    .locals 38
     .annotation system Ldalvik/annotation/Signature;
         value = {
             "(",
@@ -3047,6 +3063,22 @@
     move-wide/from16 v24, p4
 
     :goto_1
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v30
+
+    invoke-static/range {v30 .. v30}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v30
+
+    invoke-static/range {v30 .. v30}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v28
+
+    move-wide/from16 v24, v28
+
+    move-wide/from16 v26, v28
+
     and-int/lit8 v1, p10, 0x20
 
     if-eqz v1, :cond_2
