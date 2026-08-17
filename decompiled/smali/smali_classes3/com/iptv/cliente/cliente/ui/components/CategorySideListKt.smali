@@ -1264,6 +1264,22 @@
         }
     .end annotation
 
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v0
+
+    invoke-static {v0}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v0
+
+    invoke-static {v0}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v1
+
+    move-wide/from16 p2, v1
+
+    move-wide/from16 p4, v1
+
     const-string v0, "items"
 
     move-object/from16 v9, p0
@@ -2977,6 +2993,22 @@
             "II)V"
         }
     .end annotation
+
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v0
+
+    invoke-static {v0}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v0
+
+    invoke-static {v0}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v1
+
+    move-wide/from16 p2, v1
+
+    move-wide/from16 p4, v1
 
     const-string v0, "items"
 

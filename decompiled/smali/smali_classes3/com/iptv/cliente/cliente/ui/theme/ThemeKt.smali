@@ -325,6 +325,18 @@
 
     move-result-wide v4
 
+    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
+
+    move-result-object v0
+
+    invoke-static {v0}, Lcom/iptv/newvision/integration/MenuColorStore;->get(Landroid/content/Context;)I
+
+    move-result v0
+
+    invoke-static {v0}, Landroidx/compose/ui/graphics/ColorKt;->Color(I)J
+
+    move-result-wide v4
+
     if-eqz p0, :cond_1
 
     .line 41
