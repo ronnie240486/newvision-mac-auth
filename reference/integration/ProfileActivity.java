@@ -104,6 +104,22 @@ public final class ProfileActivity extends Activity {
             root.addView(enter, enterParams);
         }
         setContentView(root);
+        root.post(() -> {
+            View first = findFirstFocusable(root);
+            if (first != null) first.requestFocus();
+        });
+    }
+
+    private View findFirstFocusable(View view) {
+        if (view.isFocusable() && view.isShown()) return view;
+        if (view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                View found = findFirstFocusable(group.getChildAt(i));
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     private LinearLayout profileCard(ProfileStore.Profile profile) {
@@ -113,13 +129,21 @@ public final class ProfileActivity extends Activity {
         card.setPadding(dp(6), dp(6), dp(6), dp(4));
         card.setBackground(round(Color.rgb(21, 27, 40), dp(18)));
         card.setElevation(dp(8));
+        card.setFocusable(true);
+        card.setFocusableInTouchMode(true);
+        card.setClickable(true);
+        card.setOnFocusChangeListener((v, hasFocus) -> {
+            v.setAlpha(hasFocus ? 1f : 0.9f);
+            v.setScaleX(hasFocus ? 1.06f : 1f);
+            v.setScaleY(hasFocus ? 1.06f : 1f);
+        });
         card.setOnClickListener(v -> {
             v.animate().scaleX(1.08f).scaleY(1.08f).setDuration(120).withEndAction(() -> selectAndOpen(profile.id)).start();
         });
 
         ImageView image = new ImageView(this);
         image.setImageResource(avatarResource(profile.avatar));
-        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
         image.setClipToOutline(true);
         image.setBackground(round(Color.DKGRAY, dp(15)));
         card.addView(image, new LinearLayout.LayoutParams(dp(112), dp(112)));
@@ -145,7 +169,10 @@ public final class ProfileActivity extends Activity {
             final int index = i;
             ImageView avatar = new ImageView(this);
             avatar.setImageResource(avatarResource(i));
-            avatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            avatar.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            avatar.setFocusable(true);
+            avatar.setFocusableInTouchMode(true);
+            avatar.setClickable(true);
             avatar.setClipToOutline(true);
             avatar.setBackground(round(Color.DKGRAY, dp(14)));
             avatar.setPadding(dp(2), dp(2), dp(2), dp(2));

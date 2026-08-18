@@ -93,6 +93,19 @@ public final class ActivationActivity extends Activity {
         root.setPadding(dp(28), dp(24), dp(28), dp(24));
         root.setBackground(new ColorDrawable(Color.TRANSPARENT));
 
+        ImageView optimusLogo = new ImageView(this);
+        int optimusLogoId = getResources().getIdentifier(
+                "optimus_activation_logo", "drawable", getPackageName());
+        if (optimusLogoId != 0) optimusLogo.setImageResource(optimusLogoId);
+        optimusLogo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        optimusLogo.setAdjustViewBounds(true);
+        optimusLogo.setContentDescription("Optimus");
+        optimusLogo.setFocusable(false);
+        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(210), dp(150));
+        logoParams.gravity = Gravity.CENTER_HORIZONTAL;
+        logoParams.setMargins(0, 0, 0, dp(4));
+        root.addView(optimusLogo, logoParams);
+
         TextView title = text("Ative seu aparelho", 28, fg);
         title.setGravity(Gravity.CENTER);
         title.setShadowLayer(10f, 0f, 3f, Color.BLACK);
