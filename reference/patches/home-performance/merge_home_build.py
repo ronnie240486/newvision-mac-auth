@@ -2,9 +2,10 @@ from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
 work = Path('/home/ubuntu/newvision_work')
-source = work / 'overlay_home_profile_unsigned.apk'
-output = work / 'Optimus1.0.20-home-profile-overlay-unsigned.apk'
+source = work / 'stable_catalog_unsigned.apk'
+output = work / 'Optimus1.0.20-profile-focus-stable-catalog-unsigned.apk'
 replacements = {
+    'classes5.dex': work / 'profile_focus_patch/dex/classes.dex',
     'classes6.dex': work / 'classes6_latest.dex',
     'classes7.dex': work / 'classes7_latest.dex',
 }
