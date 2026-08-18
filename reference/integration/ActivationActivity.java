@@ -13,6 +13,9 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.graphics.drawable.ColorDrawable;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -73,24 +76,36 @@ public final class ActivationActivity extends Activity {
     }
 
     private void buildUi() {
-        int bg = Color.rgb(10, 10, 12);
         int fg = Color.WHITE;
+        FrameLayout frame = new FrameLayout(this);
+        frame.setBackgroundColor(Color.BLACK);
+
+        ImageView background = new ImageView(this);
+        background.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        int backgroundId = getResources().getIdentifier(
+                "activation_background", "drawable", getPackageName());
+        if (backgroundId != 0) background.setImageResource(backgroundId);
+        frame.addView(background, new FrameLayout.LayoutParams(-1, -1));
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setGravity(Gravity.CENTER);
         root.setPadding(dp(28), dp(24), dp(28), dp(24));
-        root.setBackgroundColor(bg);
+        root.setBackground(new ColorDrawable(Color.TRANSPARENT));
 
         TextView title = text("Ative seu aparelho", 28, fg);
         title.setGravity(Gravity.CENTER);
+        title.setShadowLayer(10f, 0f, 3f, Color.BLACK);
         root.addView(title, wrap());
 
-        TextView instruction = text("Copie este código e cadastre-o no seu painel", 17, Color.LTGRAY);
+        TextView instruction = text("Copie este código e cadastre-o no seu painel", 17, Color.WHITE);
         instruction.setGravity(Gravity.CENTER);
+        instruction.setShadowLayer(8f, 0f, 2f, Color.BLACK);
         instruction.setPadding(0, dp(12), 0, dp(10));
         root.addView(instruction, wrap());
 
-        codeView = text(code, 42, Color.rgb(105, 255, 130));
+        codeView = text(code, 42, Color.WHITE);
+        codeView.setShadowLayer(10f, 0f, 3f, Color.BLACK);
         codeView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         codeView.setGravity(Gravity.CENTER);
         codeView.setTextIsSelectable(true);
@@ -107,19 +122,24 @@ public final class ActivationActivity extends Activity {
         actions.addView(share, buttonParams());
         root.addView(actions, wrap());
 
-        statusView = text("Aguardando ativação...", 17, Color.LTGRAY);
+        statusView = text("Aguardando ativação...", 17, Color.WHITE);
         statusView.setGravity(Gravity.CENTER);
+        statusView.setShadowLayer(8f, 0f, 2f, Color.BLACK);
         statusView.setPadding(0, dp(22), 0, dp(4));
         root.addView(statusView, wrap());
 
-        TextView hint = text("Depois de cadastrar o código, esta tela libera o aplicativo automaticamente.", 14, Color.GRAY);
+        TextView hint = text("Depois de cadastrar o código, esta tela libera o aplicativo automaticamente.", 14, Color.WHITE);
         hint.setGravity(Gravity.CENTER);
+        hint.setShadowLayer(8f, 0f, 2f, Color.BLACK);
         hint.setPadding(0, dp(10), 0, 0);
         root.addView(hint, wrap());
 
         ScrollView scroll = new ScrollView(this);
-        scroll.addView(root);
-        setContentView(scroll);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(Color.TRANSPARENT);
+        scroll.addView(root, new ScrollView.LayoutParams(-1, -1));
+        frame.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(frame);
     }
 
     private void checkBackend() {
@@ -199,7 +219,11 @@ public final class ActivationActivity extends Activity {
         Button view = new Button(this);
         view.setText(label);
         view.setTextSize(14);
+        view.setTextColor(Color.WHITE);
         view.setAllCaps(false);
+        view.setBackgroundColor(Color.TRANSPARENT);
+        view.setPadding(dp(12), dp(10), dp(12), dp(10));
+        view.setShadowLayer(8f, 0f, 2f, Color.BLACK);
         return view;
     }
 
