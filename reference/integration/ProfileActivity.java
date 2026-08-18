@@ -26,6 +26,7 @@ public final class ProfileActivity extends Activity {
     private EditText nameInput;
     private int selectedAvatar = 0;
     private LinearLayout root;
+    private LinearLayout avatarStrip;
     private final String[] avatarNames = {
             "profile_avatar_male_01_explorer", "profile_avatar_male_02_suit", "profile_avatar_male_03_gamer",
             "profile_avatar_male_04_aviator", "profile_avatar_male_05_athlete",
@@ -83,6 +84,8 @@ public final class ProfileActivity extends Activity {
             for (ProfileStore.Profile profile : profiles) {
                 cards.addView(profileCard(profile));
             }
+            wireHorizontalFocus(cards);
+            scroll.setFocusable(false);
             scroll.addView(cards, new HorizontalScrollView.LayoutParams(-2, -2));
             root.addView(scroll, new LinearLayout.LayoutParams(-1, dp(180)));
 
@@ -102,6 +105,7 @@ public final class ProfileActivity extends Activity {
             root.addView(prompt, wrap());
             addAvatarPicker();
             nameInput = new EditText(this);
+            nameInput.setId(View.generateViewId());
             nameInput.setSingleLine(true);
             nameInput.setHint("Digite o nome do perfil");
             nameInput.setTextColor(Color.WHITE);
@@ -111,12 +115,22 @@ public final class ProfileActivity extends Activity {
             root.addView(nameInput, new LinearLayout.LayoutParams(-1, dp(62)));
 
             Button enter = new Button(this);
+            enter.setId(View.generateViewId());
             enter.setText("SALVAR E ENTRAR");
             enter.setTextSize(16);
             enter.setOnClickListener(v -> saveAndOpen());
             LinearLayout.LayoutParams enterParams = new LinearLayout.LayoutParams(-1, dp(58));
             enterParams.setMargins(0, dp(16), 0, 0);
             root.addView(enter, enterParams);
+            nameInput.setNextFocusDownId(enter.getId());
+            enter.setNextFocusUpId(nameInput.getId());
+            if (avatarStrip != null) {
+                for (int i = 0; i < avatarStrip.getChildCount(); i++) {
+                    View avatar = avatarStrip.getChildAt(i);
+                    avatar.setNextFocusDownId(nameInput.getId());
+                    avatar.setNextFocusUpId(avatar.getId());
+                }
+            }
         }
         setContentView(root);
         root.post(() -> {
@@ -144,6 +158,7 @@ public final class ProfileActivity extends Activity {
         card.setPadding(dp(6), dp(6), dp(6), dp(4));
         card.setBackground(round(Color.rgb(21, 27, 40), dp(18)));
         card.setElevation(dp(8));
+        card.setId(View.generateViewId());
         card.setFocusable(true);
         card.setFocusableInTouchMode(true);
         card.setClickable(true);
@@ -151,6 +166,9 @@ public final class ProfileActivity extends Activity {
             v.setAlpha(hasFocus ? 1f : 0.9f);
             v.setScaleX(hasFocus ? 1.06f : 1f);
             v.setScaleY(hasFocus ? 1.06f : 1f);
+            GradientDrawable border = round(Color.rgb(21, 27, 40), dp(18));
+            border.setStroke(dp(hasFocus ? 4 : 2), hasFocus ? Color.rgb(255, 193, 7) : Color.rgb(70, 80, 100));
+            v.setBackground(border);
         });
         card.setOnClickListener(v -> {
             v.animate().scaleX(1.08f).scaleY(1.08f).setDuration(120).withEndAction(() -> selectAndOpen(profile.id)).start();
@@ -178,7 +196,9 @@ public final class ProfileActivity extends Activity {
     private void addAvatarPicker() {
         HorizontalScrollView scroll = new HorizontalScrollView(this);
         scroll.setHorizontalScrollBarEnabled(false);
+        scroll.setFocusable(false);
         LinearLayout avatars = new LinearLayout(this);
+        avatarStrip = avatars;
         avatars.setGravity(Gravity.CENTER);
         for (int i = 0; i < avatarNames.length; i++) {
             final int index = i;
@@ -188,24 +208,70 @@ public final class ProfileActivity extends Activity {
             avatar.setFocusable(true);
             avatar.setFocusableInTouchMode(true);
             avatar.setClickable(true);
+            avatar.setId(View.generateViewId());
             avatar.setClipToOutline(true);
             avatar.setBackground(round(Color.DKGRAY, dp(14)));
             avatar.setPadding(dp(2), dp(2), dp(2), dp(2));
             avatar.setAlpha(i == 0 ? 1f : 0.52f);
+            avatar.setBackground(avatarBorder(i == 0, false));
+            avatar.setOnFocusChangeListener((v, hasFocus) -> {
+                if (hasFocus) selectedAvatar = index;
+                refreshAvatarSelection(avatars);
+            });
             avatar.setOnClickListener(v -> {
                 selectedAvatar = index;
-                for (int j = 0; j < avatars.getChildCount(); j++) {
-                    View child = avatars.getChildAt(j);
-                    child.setAlpha(j == selectedAvatar ? 1f : 0.52f);
-                    child.animate().scaleX(j == selectedAvatar ? 1.12f : 1f).scaleY(j == selectedAvatar ? 1.12f : 1f).setDuration(140).start();
-                }
+                refreshAvatarSelection(avatars);
             });
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(76), dp(76));
             p.setMargins(dp(6), dp(6), dp(6), dp(6));
             avatars.addView(avatar, p);
         }
+        wireHorizontalFocus(avatars);
         scroll.addView(avatars, new HorizontalScrollView.LayoutParams(-2, -2));
         root.addView(scroll, new LinearLayout.LayoutParams(-1, dp(96)));
+    }
+
+    private GradientDrawable avatarBorder(boolean selected, boolean focused) {
+        GradientDrawable border = round(Color.rgb(28, 34, 48), dp(14));
+        if (focused) {
+            border.setStroke(dp(4), Color.rgb(255, 193, 7));
+        } else if (selected) {
+            border.setStroke(dp(3), Color.rgb(255, 193, 7));
+        } else {
+            border.setStroke(dp(1), Color.rgb(80, 90, 110));
+        }
+        return border;
+    }
+
+    private void refreshAvatarSelection(LinearLayout avatars) {
+        for (int j = 0; j < avatars.getChildCount(); j++) {
+            View child = avatars.getChildAt(j);
+            boolean selected = j == selectedAvatar;
+            boolean focused = child.hasFocus();
+            child.setAlpha(selected ? 1f : 0.52f);
+            child.setBackground(avatarBorder(selected, focused));
+            child.animate().scaleX(focused ? 1.12f : selected ? 1.06f : 1f)
+                    .scaleY(focused ? 1.12f : selected ? 1.06f : 1f).setDuration(140).start();
+        }
+    }
+
+    private void wireHorizontalFocus(final LinearLayout strip) {
+        for (int i = 0; i < strip.getChildCount(); i++) {
+            final int index = i;
+            View child = strip.getChildAt(i);
+            child.setOnKeyListener((v, keyCode, event) -> {
+                if (event.getAction() != android.view.KeyEvent.ACTION_DOWN) return false;
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && index > 0) {
+                    strip.getChildAt(index - 1).requestFocus();
+                    return true;
+                }
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && index + 1 < strip.getChildCount()) {
+                    strip.getChildAt(index + 1).requestFocus();
+                    return true;
+                }
+                return false;
+            });
+        }
     }
 
     private int avatarResource(int index) {
