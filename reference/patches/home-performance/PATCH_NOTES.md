@@ -25,7 +25,7 @@ A build foi reconstruída com Apktool, mesclada com os DEX de integração Optim
 - `versionCode`: `21`
 - `minSdkVersion`: `24`
 - `targetSdkVersion`: `34`
-- APK: `Optimus1.0.20-home-performance.apk`
-- SHA-256: `9bbef9a82c12afc95fe6367c66c97f467f39bbaa6f0ca0ced69a3064ea6ab78b`
+- APK corrigido: `Optimus1.0.20-home-performance-fixed.apk`
+- SHA-256: `f84ef667dbb70a34cae4df73b00cfe4835165bdda4b68553d9f59abfb0ff194c`
 
-A validação local confirmou a integridade ZIP e as assinaturas v2 e v3. Não havia um dispositivo Android conectado ao ambiente para executar um teste de instalação automatizado; a instalação deve ser feita após desinstalação limpa da versão assinada com a chave de teste.
+A causa do erro da build anterior era a ausência de `classes6.dex` e `classes7.dex` no APK final: o script substituía esses arquivos quando existiam, mas não os anexava quando o APK base ainda não os continha. O script foi corrigido para inserir os DEX ausentes. A validação local confirmou a presença de `ContentDedup` em `classes6.dex`, a integridade ZIP e as assinaturas v2 e v3. Não havia um dispositivo Android conectado ao ambiente para executar um teste de instalação automatizado; a instalação deve ser feita após desinstalação limpa da versão assinada com a chave de teste.
