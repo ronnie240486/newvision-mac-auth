@@ -1,39 +1,31 @@
-# Optimus 1.0.20 — Home, perfis, overlay e hotfix de expiração
+# Optimus 1.0.20 — Hotfix de perfis, Home e RenciaExpiryBridge
 
-Esta build inclui as correções da Home, da persistência de perfis e do overlay do player, além do hotfix para a classe ausente `RenciaExpiryBridge`.
+Esta build corrige a regressão da tela “Quem está assistindo?” e mantém os hotfixes anteriores da Home e da expiração.
 
-## Hotfix de expiração
+## Tela de perfis
 
-A APK anterior chamava `com.iptv.newvision.integration.RenciaExpiryBridge` diretamente em `HomeScreenKt` e `SettingsScreenKt`, mas a classe não estava no `classes5.dex` final. Isso causava `NoClassDefFoundError` no primeiro acesso à Home.
+A `ProfileActivity` restaurada contém foco real para controle remoto, navegação D-pad esquerda/direita entre avatares, foco entre avatar, nome e botão “SALVAR E ENTRAR”, `requestFocus()` inicial e `setNextFocusUp/DownId`.
 
-A implementação foi extraída do DEX de integração validado, adicionada ao conjunto Smali de integração e recompilada dentro do `classes5.dex`. A validação final encontrou o marcador `RenciaExpiryBridge` no DEX efetivamente instalado.
+O avatar em foco recebe borda dourada de 4 dp; o avatar selecionado permanece marcado com borda dourada de 3 dp mesmo quando o foco muda para o campo de nome ou para o botão. Os cartões de perfis já salvos também são focusable e recebem borda dourada quando selecionados pelo controle.
 
-## Home progressiva e sugestões
+Foram restauradas as dez lambdas auxiliares da versão de foco remoto, que estavam ausentes da `ProfileActivity.smali` usada na APK anterior.
 
-`HomeViewModel$load$1` publica o estado assim que os filmes chegam, antes de aguardar as séries. A Home utiliza inicialmente as primeiras 200 entradas de filmes e séries para reduzir o custo da primeira composição; as telas completas de Filmes e Séries continuam usando seus próprios ViewModels.
+`ProfileStore.upsertProfile()` só atualiza um perfil quando o nome já existe. Nome novo gera UUID, adiciona um novo objeto ao JSON `profiles_json` e define esse novo perfil como ativo sem apagar os anteriores. A tela usa essa mesma função ao salvar.
 
-O destaque usa um cursor sequencial persistente no `HomeViewModel`, evitando repetir o mesmo item durante a sessão. O índice é seguro em relação ao tamanho real da lista.
+## Home, histórico e player
 
-## Perfis e histórico separado
+A Home publica os filmes antes de aguardar as séries e usa um primeiro lote limitado para reduzir a primeira composição. O destaque usa cursor sequencial para evitar repetição na mesma sessão.
 
-`ProfileStore.upsertProfile()` atualiza somente um perfil cujo nome já exista. Um nome novo cria um novo ID e preserva os avatares anteriores.
+O histórico usa chave por `active_profile_id`. O handler do player reativa o overlay sobre o vídeo com OK, Enter, esquerda ou direita sem destruir o player.
 
-`WatchProgressStore` usa a chave `watch_progress_v1_<active_profile_id>`, separando o histórico de reprodução de cada perfil.
+## Expiração e DEX
 
-## Overlay no player
-
-O handler do player recebe `topBarVisible`. OK, Enter, esquerda e direita reativam o overlay sobre o vídeo quando o controller está oculto, sem fechar ou pausar o ExoPlayer. A camada existente mostra o nome do canal, a posição na playlist e os controles de zapping.
-
-## DEX e build
-
-`classes5.dex` contém as pontes de autenticação, perfis e expiração. `classes6.dex` e `classes7.dex` permanecem anexados para manter `ContentDedup`, `MenuColorStore` e `SportsEpgBridge`.
+`RenciaExpiryBridge` foi incluída em `classes5.dex`, corrigindo o `NoClassDefFoundError` que ocorria na Home. `classes6.dex` e `classes7.dex` continuam anexados, mantendo `ContentDedup`, `MenuColorStore` e `SportsEpgBridge`.
 
 - Pacote: `com.iptv.newvision`
 - `versionName`: `1.0.20`
 - `versionCode`: `21`
-- `minSdkVersion`: `24`
-- `targetSdkVersion`: `34`
-- APK: `Optimus1.0.20-home-profile-overlay-expiry-fixed.apk`
-- SHA-256: `e8e4d0d7d074144c4f0a5cd29bf9c5f47a827765b4ab80d202bb7ec448a9b214`
+- APK: `Optimus1.0.20-profile-focus-multi-hotfix.apk`
+- SHA-256: `889b26d7b5ac30416c8cbe17f7509aac009ed4875a4df54ef3f1fbc6971a1d8b`
 
-A build foi validada com montagem Apktool, `zipalign`, integridade ZIP e assinaturas Android v2/v3. Não há dispositivo Android conectado ao ambiente para teste automatizado; recomenda-se instalação limpa, removendo a build anterior assinada com a chave de teste.
+A build foi validada com montagem Apktool, `zipalign`, integridade ZIP e assinatura Android v2/v3. Recomenda-se desinstalação limpa da versão anterior assinada com a chave de teste antes de instalar esta APK.
