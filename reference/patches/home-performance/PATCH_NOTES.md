@@ -1,21 +1,19 @@
-# Optimus 1.0.20 — Fundo global e menu de perfil por pressão longa
+# Optimus 1.0.20 — Hotfix do menu de perfil sem crash
 
-Esta build aplica `activation_background.webp` como fundo global do aplicativo. O tema normal e o tema Splash usam o drawable da imagem; a camada `Surface` de topo do Compose fica transparente para que Home, Filmes, Séries, Canais, Player e Configurações revelem o fundo. A tela de perfis nativa também usa o mesmo drawable no root.
+A APK anterior travava ao escolher `EDITAR` ou `EXCLUIR` no menu aberto por pressão longa no OK. O `ProfileActivity$$ExternalSyntheticLambda14.onClick` usava apenas três registradores. Como o método recebia `DialogInterface` e `int`, o registrador `p0` era sobrescrito ao carregar `f$0`; em seguida, a leitura de `f$1` era interpretada pelo Android como acesso a um campo de `ProfileActivity`, causando `VerifyError`.
 
-Os botões `EDITAR` e `EXCLUIR` foram removidos de dentro dos cartões/avatares. Um toque normal no avatar continua executando a entrada no perfil. Ao manter o avatar selecionado e segurar o botão OK/D-pad center, o cartão dispara um menu separado com `EDITAR` e `EXCLUIR`. Escolher `EDITAR` abre o formulário com os dados atuais; escolher `EXCLUIR` abre a confirmação antes de remover somente aquele perfil.
-
-A build conserva foco D-pad, borda dourada, múltiplos perfis, `ProfileStore`, `RenciaExpiryBridge`, autenticação MAC, `ContentDedup`, `MenuColorStore`, `SportsEpgBridge`, `classes6.dex` e `classes7.dex`.
+Nesta build, a Lambda14 usa quatro registradores. O objeto da própria lambda permanece intacto enquanto `f$0` e `f$1` são carregados, e o método recebe corretamente o perfil e o índice da opção. O fundo global, o menu de pressão longa e as demais telas não foram alterados.
 
 ## Validação
 
-- APK: `Optimus1.0.20-global-bg-profile-menu.apk`
-- SHA-256: `c18cdcd42ea7ae313998ccc6d43d15238cd121d949dd95fc5c3755b5996456a7`
-- `activation_background.webp`: presente no APK
-- `Surface` Compose transparente: presente
-- `setOnLongClickListener`: presente no cartão
-- Menu `Opcoes do perfil`, `EDITAR` e `EXCLUIR`: presentes
+- APK: `Optimus1.0.20-global-bg-profile-menu-fixed.apk`
+- SHA-256: `18b277dd2d6ca51e03a23735700388b5c8c60bd8985654f8c807006533c4f5fc`
+- Lambda14 com quatro registradores: presente
+- Menu `EDITAR` e `EXCLUIR`: presente
+- `ProfileStore` e `RenciaExpiryBridge`: presentes
+- Imagem global `activation_background.webp`: presente
 - Assinatura Android v2/v3: aprovada
 - `zipalign`: aprovado
 - Integridade ZIP: aprovada
 
-Instale por cima da versão anterior para preservar os perfis e não use “limpar dados”. O teste em TV Box física deve confirmar a pressão longa do OK; a validação feita no ambiente foi estrutural e de montagem.
+Instale por cima da versão anterior para preservar os perfis e não use “limpar dados”.
