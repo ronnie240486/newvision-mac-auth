@@ -1,31 +1,28 @@
-# Optimus 1.0.20 — Hotfix de perfis, Home e RenciaExpiryBridge
+# Optimus 1.0.20 — Catálogo progressivo, perfis e hotfixes
 
-Esta build corrige a regressão da tela “Quem está assistindo?” e mantém os hotfixes anteriores da Home e da expiração.
+Esta build aplica uma mudança localizada nas coroutines de carga de Filmes e Séries. A tela de perfis, o player, a autenticação MAC e os DEX de integração permanecem incluídos.
 
-## Tela de perfis
+## Carregamento progressivo
 
-A `ProfileActivity` restaurada contém foco real para controle remoto, navegação D-pad esquerda/direita entre avatares, foco entre avatar, nome e botão “SALVAR E ENTRAR”, `requestFocus()` inicial e `setNextFocusUp/DownId`.
+Antes, `MoviesViewModel$load$1` e `SeriesViewModel$load$1` buscavam as categorias, solicitavam a lista inteira e somente então atualizavam o `UiState`. Em catálogos grandes, a primeira faixa ficava bloqueada até o retorno completo.
 
-O avatar em foco recebe borda dourada de 4 dp; o avatar selecionado permanece marcado com borda dourada de 3 dp mesmo quando o foco muda para o campo de nome ou para o botão. Os cartões de perfis já salvos também são focusable e recebem borda dourada quando selecionados pelo controle.
+Agora, depois de receber as categorias, cada ViewModel identifica a primeira categoria e solicita seus itens primeiro. O resultado é publicado no `UiState` imediatamente. Só depois dessa publicação a coroutine inicia a solicitação do catálogo completo com `category_id` nulo. Quando a segunda resposta chega, o mesmo `UiState` é atualizado com a lista completa e o `Display` existente recompõe as demais faixas.
 
-Foram restauradas as dez lambdas auxiliares da versão de foco remoto, que estavam ausentes da `ProfileActivity.smali` usada na APK anterior.
+A tela Compose continua consumindo `Display.groups`; não foi necessário alterar a composição de cartões, o player ou a tela de perfis. A intenção é que a primeira fileira apareça enquanto o catálogo completo ainda está sendo obtido, em vez de esperar toda a lista.
 
-`ProfileStore.upsertProfile()` só atualiza um perfil quando o nome já existe. Nome novo gera UUID, adiciona um novo objeto ao JSON `profiles_json` e define esse novo perfil como ativo sem apagar os anteriores. A tela usa essa mesma função ao salvar.
+## Perfis e player preservados
 
-## Home, histórico e player
+A build mantém a `ProfileActivity` com foco D-pad, borda dourada e criação de múltiplos perfis, além do `ProfileStore` que adiciona nomes novos sem apagar os anteriores. O overlay do player e as pontes de autenticação permanecem no APK.
 
-A Home publica os filmes antes de aguardar as séries e usa um primeiro lote limitado para reduzir a primeira composição. O destaque usa cursor sequencial para evitar repetição na mesma sessão.
+## Validação
 
-O histórico usa chave por `active_profile_id`. O handler do player reativa o overlay sobre o vídeo com OK, Enter, esquerda ou direita sem destruir o player.
+- APK: `Optimus1.0.20-progressive-catalog.apk`
+- SHA-256: `cd750c87bea7901270cc5199a3fbd1affaefd1381165c710b8662fa3cd26f3bd`
+- `classes3.dex`: coroutines progressivas de Filmes e Séries
+- `classes5.dex`: autenticação, perfis e `RenciaExpiryBridge`
+- `classes6.dex` e `classes7.dex`: `ContentDedup`, `MenuColorStore` e `SportsEpgBridge`
+- Assinatura Android v2/v3: aprovada
+- `zipalign`: aprovado
+- Integridade ZIP: aprovada
 
-## Expiração e DEX
-
-`RenciaExpiryBridge` foi incluída em `classes5.dex`, corrigindo o `NoClassDefFoundError` que ocorria na Home. `classes6.dex` e `classes7.dex` continuam anexados, mantendo `ContentDedup`, `MenuColorStore` e `SportsEpgBridge`.
-
-- Pacote: `com.iptv.newvision`
-- `versionName`: `1.0.20`
-- `versionCode`: `21`
-- APK: `Optimus1.0.20-profile-focus-multi-hotfix.apk`
-- SHA-256: `889b26d7b5ac30416c8cbe17f7509aac009ed4875a4df54ef3f1fbc6971a1d8b`
-
-A build foi validada com montagem Apktool, `zipalign`, integridade ZIP e assinatura Android v2/v3. Recomenda-se desinstalação limpa da versão anterior assinada com a chave de teste antes de instalar esta APK.
+Não há TV Box física conectada ao ambiente para medir o tempo real de resposta. A validação final deve ser feita na TV Box com a mesma lista grande que apresentava a lentidão.
