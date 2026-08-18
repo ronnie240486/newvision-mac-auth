@@ -99,9 +99,10 @@ public final class ActivationActivity extends Activity {
         if (optimusLogoId != 0) optimusLogo.setImageResource(optimusLogoId);
         optimusLogo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         optimusLogo.setAdjustViewBounds(true);
+        optimusLogo.setAlpha(0.16f);
         optimusLogo.setContentDescription("Optimus");
         optimusLogo.setFocusable(false);
-        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(210), dp(150));
+        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(360), dp(210));
         logoParams.gravity = Gravity.CENTER_HORIZONTAL;
         logoParams.setMargins(0, 0, 0, dp(4));
         root.addView(optimusLogo, logoParams);
