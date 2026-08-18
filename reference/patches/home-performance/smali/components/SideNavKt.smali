@@ -4353,29 +4353,11 @@
 
     move-result v7
 
-    # TV Box: animação curta e previsível para abrir/fechar o sidebar.
-    # Os valores vivos do método Compose são preservados durante a chamada.
-    move-object/from16 v31, v0
-    move-object/from16 v32, v1
-    move-object/from16 v33, v2
-    move-object/from16 v34, v3
-    move-object/from16 v35, v4
-    const/16 v0, 0xa0
-    const/4 v1, 0x0
-    const/4 v2, 0x0
-    const/4 v3, 0x6
-    const/4 v4, 0x0
-    invoke-static {v0, v1, v2, v3, v4}, Landroidx/compose/animation/core/AnimationSpecKt;->tween$default(IILandroidx/compose/animation/core/Easing;ILjava/lang/Object;)Landroidx/compose/animation/core/TweenSpec;
-    move-result-object v8
-    move-object/from16 v0, v31
-    move-object/from16 v1, v32
-    move-object/from16 v2, v33
-    move-object/from16 v3, v34
-    move-object/from16 v4, v35
-
     const/16 v19, 0x180
 
     const/16 v20, 0xa
+
+    const/4 v8, 0x0
 
     .line 98
     const-string v9, "sidenav-width"

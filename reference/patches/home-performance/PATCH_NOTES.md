@@ -25,11 +25,11 @@ A build foi reconstruída com Apktool, mesclada com os DEX de integração Optim
 - `versionCode`: `21`
 - `minSdkVersion`: `24`
 - `targetSdkVersion`: `34`
-- APK corrigido: `Optimus1.0.20-sidenav-verify-fixed.apk`
-- SHA-256: `ea727ea812543ba0492c17990ff0f7722a2d6defe78b1968091c499c0af273e3`
+- APK estável: `Optimus1.0.20-sidenav-stable.apk`
+- SHA-256: `485aa0d8410d2be51dffc3285c5c9f55e84458c9e2f6ce43beab14c60ac660b4`
 
 A causa do erro da build anterior era a ausência de `classes6.dex` e `classes7.dex` no APK final: o script substituía esses arquivos quando existiam, mas não os anexava quando o APK base ainda não os continha. O script foi corrigido para inserir os DEX ausentes.
 
-Também foi corrigido o `VerifyError` do `SideNav`: o patch de animação usava registradores que continham callbacks Compose vivos, fazendo um inteiro ser interpretado como `Function0`. A versão atual preserva e restaura esses registradores ao criar o `TweenSpec`.
+O `VerifyError` do `SideNav` foi eliminado removendo completamente o `TweenSpec` customizado. O bloco original de `animateDpAsState` foi restaurado, evitando qualquer alteração de registradores vivos do Compose. A velocidade customizada de 160 ms não está ativa nesta build; a prioridade desta versão é a estabilidade.
 
 A validação local confirmou a presença de `ContentDedup` em `classes6.dex`, a integridade ZIP, o alinhamento e as assinaturas v2 e v3. Não havia um dispositivo Android conectado ao ambiente para executar um teste de instalação automatizado; a instalação deve ser feita após desinstalação limpa da versão assinada com a chave de teste.
