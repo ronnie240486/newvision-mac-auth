@@ -1,22 +1,19 @@
-# Optimus 1.0.20 — Hotfix visual + ProfileStore
+# Optimus 1.0.20 — Perfis com Editar e Excluir
 
-Esta build corrige o `NoClassDefFoundError` de `com.iptv.newvision.integration.ProfileStore` que ocorria quando a Home criava o `WatchProgressStore`. A causa foi uma mesclagem incompleta: a APK visual anterior tinha `classes6.dex`/`classes7.dex`, mas não tinha o conjunto correto de integração no `classes5.dex`.
+Esta build adiciona controles funcionais a cada cartão da tela “Quem está assistindo?”. O cartão continua selecionável pelo controle remoto, mantém a borda dourada no avatar focado/selecionado e agora exibe os botões `EDITAR` e `EXCLUIR`.
 
-## Correções incluídas
+Ao escolher `EDITAR`, a tela retorna ao formulário com o nome e o avatar atuais preenchidos. O avatar escolhido permanece selecionado e o salvamento remove a entrada antiga e cria a atualização sem apagar os outros perfis. Ao escolher `EXCLUIR`, aparece uma confirmação com as opções `CANCELAR` e `EXCLUIR`; somente a confirmação remove o perfil pelo ID e a tela é reconstruída preservando os demais.
 
-O `classes5.dex` agora contém `ProfileStore`, `ProfileStore$Profile`, `ProfileActivity`, as lambdas de foco D-pad, `ActivationActivity`, `RenciaLoginBridge` e `RenciaExpiryBridge`. Os `classes6.dex` e `classes7.dex` continuam presentes.
-
-A limpeza visual também foi preservada: `MainActivity` e `ProfileActivity` usam `Theme.IPTVCliente`, o `Theme.IPTVCliente.Splash` usa apenas `bg_dark` e o `splash_window` não contém bitmap/logo central. Portanto, o logo gigante não aparece nas telas de Home, Filmes, Séries, Canais, Player ou perfis.
+O conjunto de integração usado no APK também mantém `ProfileStore`, `ProfileActivity`, `RenciaExpiryBridge`, autenticação MAC, `ContentDedup`, `MenuColorStore`, `SportsEpgBridge`, `classes6.dex` e `classes7.dex`. A limpeza visual permanece: `MainActivity` e `ProfileActivity` usam o tema normal, e o `splash_window` não contém logo central.
 
 ## Validação
 
-- APK: `Optimus1.0.20-profile-dex-hotfix.apk`
-- SHA-256: `e4e7935f21d2667aa231b999fbc2b10f6e4805e22d6b3d838a24ce33bdec95f5`
-- `ProfileStore` no `classes5.dex`: presente
-- `ProfileActivity` e foco D-pad: presentes
-- `RenciaExpiryBridge`: presente
+- APK: `Optimus1.0.20-profile-edit-delete.apk`
+- SHA-256: `24eb4def6ca5f386ee891b32d02d6a5ee2605fef244ee2d08682fded7333b96d`
+- Marcadores `EDITAR`, `EXCLUIR`, `confirmDelete` e `deleteProfile`: presentes no `classes5.dex`
+- `ProfileStore`: presente no `classes5.dex`
 - Assinatura Android v2/v3: aprovada
 - `zipalign`: aprovado
 - Integridade ZIP: aprovada
 
-Instale por cima da APK visual anterior para preservar os perfis e os dados locais; não use “limpar dados”.
+Instale por cima da APK anterior para manter os perfis existentes; não use “limpar dados”. O teste físico deve confirmar o foco dos botões com o D-pad na TV Box.
