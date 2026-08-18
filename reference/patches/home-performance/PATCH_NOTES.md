@@ -1,35 +1,39 @@
-# Optimus 1.0.20 — Home, perfis e overlay do player
+# Optimus 1.0.20 — Home, perfis, overlay e hotfix de expiração
 
-Esta atualização corrige três áreas observadas na TV Box: a primeira publicação da Home, a persistência dos perfis e a abertura do menu de canais sobre o vídeo em tela cheia.
+Esta build inclui as correções da Home, da persistência de perfis e do overlay do player, além do hotfix para a classe ausente `RenciaExpiryBridge`.
+
+## Hotfix de expiração
+
+A APK anterior chamava `com.iptv.newvision.integration.RenciaExpiryBridge` diretamente em `HomeScreenKt` e `SettingsScreenKt`, mas a classe não estava no `classes5.dex` final. Isso causava `NoClassDefFoundError` no primeiro acesso à Home.
+
+A implementação foi extraída do DEX de integração validado, adicionada ao conjunto Smali de integração e recompilada dentro do `classes5.dex`. A validação final encontrou o marcador `RenciaExpiryBridge` no DEX efetivamente instalado.
 
 ## Home progressiva e sugestões
 
-A coroutine `HomeViewModel$load$1` publica o estado assim que os filmes chegam, antes de aguardar as séries. Para reduzir o custo da primeira composição, a Home utiliza inicialmente as primeiras 200 entradas de filmes e séries; as telas completas de Filmes e Séries continuam usando seus próprios ViewModels e não são limitadas por este recorte.
+`HomeViewModel$load$1` publica o estado assim que os filmes chegam, antes de aguardar as séries. A Home utiliza inicialmente as primeiras 200 entradas de filmes e séries para reduzir o custo da primeira composição; as telas completas de Filmes e Séries continuam usando seus próprios ViewModels.
 
-O destaque de sugestões usa um cursor sequencial persistente no `HomeViewModel`, em vez de sortear novamente o mesmo item. A recomposição passa a avançar para o próximo item disponível e o cursor volta ao início somente depois de percorrer a lista. O destaque de itens recentes também usa um índice seguro baseado no tamanho real da lista, evitando `first()` fixo e índices inválidos.
+O destaque usa um cursor sequencial persistente no `HomeViewModel`, evitando repetir o mesmo item durante a sessão. O índice é seguro em relação ao tamanho real da lista.
 
-O `ContinueHero` mantém uma área de altura fixa para não perder o layout ao sair e retornar ao topo da `LazyColumn`. A sinopse e os metadados continuam dependentes dos dados efetivamente recebidos pela playlist; a build não inventa texto quando o backend não fornece descrição.
+## Perfis e histórico separado
 
-## Perfis e conteúdo separado
+`ProfileStore.upsertProfile()` atualiza somente um perfil cujo nome já exista. Um nome novo cria um novo ID e preserva os avatares anteriores.
 
-`ProfileStore.upsertProfile()` agora atualiza somente um perfil cujo nome já exista. Quando o usuário informa um nome novo, um novo ID é criado e o JSON anterior é preservado; assim, criar o segundo, terceiro ou quarto perfil não apaga os avatares existentes.
+`WatchProgressStore` usa a chave `watch_progress_v1_<active_profile_id>`, separando o histórico de reprodução de cada perfil.
 
-O `WatchProgressStore` usa a chave `watch_progress_v1_<active_profile_id>`. O getter do App cria o store correspondente ao perfil ativo, evitando que o histórico de reprodução de um avatar apareça no perfil de outro avatar.
+## Overlay no player
 
-## Overlay transparente no player
-
-O handler de teclas do player recebe o estado `topBarVisible`. Quando o controller do PlayerView está oculto e o usuário pressiona OK, Enter, esquerda ou direita, o handler mantém o vídeo ativo, define a barra superior como visível e chama `showController()`. A camada existente sobre o player exibe o nome do canal, a posição na playlist e os controles de zapping, sem destruir ou pausar o ExoPlayer.
+O handler do player recebe `topBarVisible`. OK, Enter, esquerda e direita reativam o overlay sobre o vídeo quando o controller está oculto, sem fechar ou pausar o ExoPlayer. A camada existente mostra o nome do canal, a posição na playlist e os controles de zapping.
 
 ## DEX e build
 
-A APK foi montada com Apktool a partir dos DEX principais e com o DEX de integração recompilado a partir do Smali corrigido. `classes6.dex` e `classes7.dex` são anexados ao APK final para manter `ContentDedup`, `MenuColorStore` e `SportsEpgBridge`.
+`classes5.dex` contém as pontes de autenticação, perfis e expiração. `classes6.dex` e `classes7.dex` permanecem anexados para manter `ContentDedup`, `MenuColorStore` e `SportsEpgBridge`.
 
 - Pacote: `com.iptv.newvision`
 - `versionName`: `1.0.20`
 - `versionCode`: `21`
 - `minSdkVersion`: `24`
 - `targetSdkVersion`: `34`
-- APK: `Optimus1.0.20-home-profile-overlay.apk`
-- SHA-256: `c6fca2d1eae221c049c39a394bfb3535da150bb822c20d071f0b8686dca2cb3e`
+- APK: `Optimus1.0.20-home-profile-overlay-expiry-fixed.apk`
+- SHA-256: `e8e4d0d7d074144c4f0a5cd29bf9c5f47a827765b4ab80d202bb7ec448a9b214`
 
-A build foi validada com integridade ZIP, `zipalign` e assinaturas Android v2/v3. Como não há dispositivo Android conectado ao ambiente, a instalação deve ser testada na TV Box e no celular. Recomenda-se remover a APK anterior antes da instalação devido à chave de teste usada nas builds de desenvolvimento.
+A build foi validada com montagem Apktool, `zipalign`, integridade ZIP e assinaturas Android v2/v3. Não há dispositivo Android conectado ao ambiente para teste automatizado; recomenda-se instalação limpa, removendo a build anterior assinada com a chave de teste.
