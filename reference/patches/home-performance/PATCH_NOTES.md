@@ -1,35 +1,35 @@
-# Optimus 1.0.20 — Home performance patch
+# Optimus 1.0.20 — Home, perfis e overlay do player
 
-Este patch melhora a primeira renderização da tela Home e evita que o destaque permaneça preso ao primeiro item recente.
+Esta atualização corrige três áreas observadas na TV Box: a primeira publicação da Home, a persistência dos perfis e a abertura do menu de canais sobre o vídeo em tela cheia.
 
-## Alterações
+## Home progressiva e sugestões
 
-A coroutine `HomeViewModel$load$1` agora publica o estado imediatamente depois que a lista de filmes é recebida. A busca das séries continua em seguida e uma segunda publicação completa o estado quando as séries chegam. Com isso, a primeira faixa de filmes e o destaque podem aparecer antes da conclusão do catálogo de séries.
+A coroutine `HomeViewModel$load$1` publica o estado assim que os filmes chegam, antes de aguardar as séries. Para reduzir o custo da primeira composição, a Home utiliza inicialmente as primeiras 200 entradas de filmes e séries; as telas completas de Filmes e Séries continuam usando seus próprios ViewModels e não são limitadas por este recorte.
 
-O item hero da Home não usa mais sempre `recent.first()`. Quando há itens recentes, o índice é calculado a partir do relógio atual e limitado ao tamanho da lista, permitindo alternar o destaque quando o item é recomposto ao retornar ao topo. O índice usa valor absoluto para evitar acesso negativo.
+O destaque de sugestões usa um cursor sequencial persistente no `HomeViewModel`, em vez de sortear novamente o mesmo item. A recomposição passa a avançar para o próximo item disponível e o cursor volta ao início somente depois de percorrer a lista. O destaque de itens recentes também usa um índice seguro baseado no tamanho real da lista, evitando `first()` fixo e índices inválidos.
 
-O `SideNav` também foi reconstruído com `TweenSpec` de 160 ms e registradores compatíveis com o assembler DEX.
+O `ContinueHero` mantém uma área de altura fixa para não perder o layout ao sair e retornar ao topo da `LazyColumn`. A sinopse e os metadados continuam dependentes dos dados efetivamente recebidos pela playlist; a build não inventa texto quando o backend não fornece descrição.
 
-## Arquivos
+## Perfis e conteúdo separado
 
-- `HomeViewModel$load$1.smali`: publicação progressiva após os filmes.
-- `HomeScreenKt$HomeScreen$4$1$1$1.smali`: seleção rotativa do destaque recente.
-- `SideNavKt.smali`: animação curta de abertura e fechamento.
+`ProfileStore.upsertProfile()` agora atualiza somente um perfil cujo nome já exista. Quando o usuário informa um nome novo, um novo ID é criado e o JSON anterior é preservado; assim, criar o segundo, terceiro ou quarto perfil não apaga os avatares existentes.
 
-## Build validada
+O `WatchProgressStore` usa a chave `watch_progress_v1_<active_profile_id>`. O getter do App cria o store correspondente ao perfil ativo, evitando que o histórico de reprodução de um avatar apareça no perfil de outro avatar.
 
-A build foi reconstruída com Apktool, mesclada com os DEX de integração Optimus já validados, alinhada com `zipalign` e assinada com Android APK Signature Scheme v2/v3.
+## Overlay transparente no player
+
+O handler de teclas do player recebe o estado `topBarVisible`. Quando o controller do PlayerView está oculto e o usuário pressiona OK, Enter, esquerda ou direita, o handler mantém o vídeo ativo, define a barra superior como visível e chama `showController()`. A camada existente sobre o player exibe o nome do canal, a posição na playlist e os controles de zapping, sem destruir ou pausar o ExoPlayer.
+
+## DEX e build
+
+A APK foi montada com Apktool a partir dos DEX principais e com o DEX de integração recompilado a partir do Smali corrigido. `classes6.dex` e `classes7.dex` são anexados ao APK final para manter `ContentDedup`, `MenuColorStore` e `SportsEpgBridge`.
 
 - Pacote: `com.iptv.newvision`
 - `versionName`: `1.0.20`
 - `versionCode`: `21`
 - `minSdkVersion`: `24`
 - `targetSdkVersion`: `34`
-- APK estável: `Optimus1.0.20-sidenav-stable.apk`
-- SHA-256: `485aa0d8410d2be51dffc3285c5c9f55e84458c9e2f6ce43beab14c60ac660b4`
+- APK: `Optimus1.0.20-home-profile-overlay.apk`
+- SHA-256: `c6fca2d1eae221c049c39a394bfb3535da150bb822c20d071f0b8686dca2cb3e`
 
-A causa do erro da build anterior era a ausência de `classes6.dex` e `classes7.dex` no APK final: o script substituía esses arquivos quando existiam, mas não os anexava quando o APK base ainda não os continha. O script foi corrigido para inserir os DEX ausentes.
-
-O `VerifyError` do `SideNav` foi eliminado removendo completamente o `TweenSpec` customizado. O bloco original de `animateDpAsState` foi restaurado, evitando qualquer alteração de registradores vivos do Compose. A velocidade customizada de 160 ms não está ativa nesta build; a prioridade desta versão é a estabilidade.
-
-A validação local confirmou a presença de `ContentDedup` em `classes6.dex`, a integridade ZIP, o alinhamento e as assinaturas v2 e v3. Não havia um dispositivo Android conectado ao ambiente para executar um teste de instalação automatizado; a instalação deve ser feita após desinstalação limpa da versão assinada com a chave de teste.
+A build foi validada com integridade ZIP, `zipalign` e assinaturas Android v2/v3. Como não há dispositivo Android conectado ao ambiente, a instalação deve ser testada na TV Box e no celular. Recomenda-se remover a APK anterior antes da instalação devido à chave de teste usada nas builds de desenvolvimento.
