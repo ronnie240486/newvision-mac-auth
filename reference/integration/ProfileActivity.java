@@ -22,6 +22,7 @@ import java.util.List;
 
 /** Seletor local de perfis com avatares 3D; aparece em toda abertura do aplicativo. */
 public final class ProfileActivity extends Activity {
+    private static volatile boolean catalogWarmupStarted;
     private EditText nameInput;
     private int selectedAvatar = 0;
     private LinearLayout root;
@@ -39,6 +40,20 @@ public final class ProfileActivity extends Activity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         buildUi(false);
+        warmupCatalogInBackground();
+    }
+
+    private void warmupCatalogInBackground() {
+        if (catalogWarmupStarted) return;
+        catalogWarmupStarted = true;
+        new Thread(() -> {
+            try {
+                Class<?> home = Class.forName("com.iptv.cliente.ui.home.HomeViewModel");
+                home.getDeclaredConstructor().newInstance();
+            } catch (Throwable ignored) {
+                // A HomeViewModel nova continuará a carga normalmente ao abrir a Home.
+            }
+        }, "optimus-catalog-warmup").start();
     }
 
     private void buildUi(boolean adding) {
