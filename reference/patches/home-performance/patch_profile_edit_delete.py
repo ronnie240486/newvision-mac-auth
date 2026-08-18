@@ -3,6 +3,7 @@ from pathlib import Path
 root = Path('/home/ubuntu/newvision_work/decoded_profile_focus_hotfix_candidate')
 p = root / 'smali_classes5/com/iptv/newvision/integration/ProfileActivity.smali'
 s = p.read_text()
+s = s.replace('.method private saveAndOpen()V\n    .registers 3', '.method private saveAndOpen()V\n    .registers 5', 1)
 
 s = s.replace(
     '.field private selectedAvatar:I\n',

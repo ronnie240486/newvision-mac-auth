@@ -1,19 +1,19 @@
-# Optimus 1.0.20 — Perfis com Editar e Excluir
+# Optimus 1.0.20 — Hotfix final de Editar/Excluir
 
-Esta build adiciona controles funcionais a cada cartão da tela “Quem está assistindo?”. O cartão continua selecionável pelo controle remoto, mantém a borda dourada no avatar focado/selecionado e agora exibe os botões `EDITAR` e `EXCLUIR`.
+A APK anterior de Editar/Excluir tinha um `VerifyError` ao iniciar `ProfileActivity`. O problema estava em `saveAndOpen()`: a primeira versão do patch usava registradores insuficientes e acabava tratando uma `String` de ID como se fosse o `Context` esperado por `ProfileStore.removeProfile`/`upsertProfile`.
 
-Ao escolher `EDITAR`, a tela retorna ao formulário com o nome e o avatar atuais preenchidos. O avatar escolhido permanece selecionado e o salvamento remove a entrada antiga e cria a atualização sem apagar os outros perfis. Ao escolher `EXCLUIR`, aparece uma confirmação com as opções `CANCELAR` e `EXCLUIR`; somente a confirmação remove o perfil pelo ID e a tela é reconstruída preservando os demais.
+Nesta versão, `saveAndOpen()` foi reconstruído com cinco registradores, preservando o `Context` da Activity e mantendo o ID do perfil em um registrador local separado. A tela agora inclui `EDITAR` e `EXCLUIR` em cada cartão. Editar reabre o formulário com nome/avatar preenchidos; salvar substitui somente o perfil em edição. Excluir exige confirmação e remove somente o perfil escolhido, preservando os demais.
 
-O conjunto de integração usado no APK também mantém `ProfileStore`, `ProfileActivity`, `RenciaExpiryBridge`, autenticação MAC, `ContentDedup`, `MenuColorStore`, `SportsEpgBridge`, `classes6.dex` e `classes7.dex`. A limpeza visual permanece: `MainActivity` e `ProfileActivity` usam o tema normal, e o `splash_window` não contém logo central.
+A borda dourada, a navegação D-pad, o `ProfileStore`, `RenciaExpiryBridge`, autenticação MAC, `ContentDedup`, `MenuColorStore`, `SportsEpgBridge`, `classes6.dex` e `classes7.dex` permanecem incluídos. A limpeza visual do fundo/logo global também permanece.
 
 ## Validação
 
-- APK: `Optimus1.0.20-profile-edit-delete.apk`
-- SHA-256: `24eb4def6ca5f386ee891b32d02d6a5ee2605fef244ee2d08682fded7333b96d`
-- Marcadores `EDITAR`, `EXCLUIR`, `confirmDelete` e `deleteProfile`: presentes no `classes5.dex`
-- `ProfileStore`: presente no `classes5.dex`
+- APK: `Optimus1.0.20-profile-edit-delete-fixed.apk`
+- SHA-256: `22ac03b8510de3453ba33794ba6f15dac886b28cd88ab4d67d060daec289b101`
+- `EDITAR`, `EXCLUIR`, `confirmDelete` e `deleteProfile`: presentes no `classes5.dex`
+- `ProfileStore` e `ProfileActivity`: presentes no `classes5.dex`
 - Assinatura Android v2/v3: aprovada
 - `zipalign`: aprovado
 - Integridade ZIP: aprovada
 
-Instale por cima da APK anterior para manter os perfis existentes; não use “limpar dados”. O teste físico deve confirmar o foco dos botões com o D-pad na TV Box.
+Instale por cima da versão anterior para preservar os perfis e não use “limpar dados”. O teste físico deve confirmar a navegação D-pad até os botões dentro do cartão.
