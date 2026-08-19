@@ -15,12 +15,47 @@ import java.util.Map;
 /** In-player live category browser. It keeps playback alive and supports remote OK and mobile taps. */
 public final class ChannelOverlayBridge {
     private static volatile Object liveState;
+    private static volatile Object openDialog;
+    private static int recentCursor = 0;
     private static final List<Object> recentChannels = new ArrayList<Object>();
 
     private ChannelOverlayBridge() {}
 
     public static void setLiveState(Object state) {
         liveState = state;
+    }
+
+    public static boolean handleBack() {
+        Object dialog = openDialog;
+        if (dialog == null) return false;
+        try {
+            dialog.getClass().getMethod("cancel").invoke(dialog);
+            return true;
+        } catch (Throwable ignored) {
+            openDialog = null;
+            return false;
+        }
+    }
+
+    public static boolean stepRecent(Context context, Object exoPlayer, int direction) {
+        try {
+            List<Object> recent = recentChannelSnapshot();
+            if (recent.isEmpty()) return false;
+            if (recent.size() == 1) recentCursor = 0;
+            else {
+                recentCursor += direction;
+                while (recentCursor < 0) recentCursor += recent.size();
+                while (recentCursor >= recent.size()) recentCursor -= recent.size();
+            }
+            Object playlist = getPlaybackObject("getLivePlaylist");
+            if (playlist == null || context == null || exoPlayer == null) return false;
+            Object chosen = recent.get(recentCursor);
+            State state = new State(context, playlist, null, null, null, null, exoPlayer);
+            directSwitch(state, chosen, recent, recentCursor);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     public static void installTouch(final View view, final Object exoPlayer) {
@@ -132,6 +167,7 @@ public final class ChannelOverlayBridge {
             if (id.equals(oldId)) recentChannels.remove(i);
         }
         recentChannels.add(0, stream);
+        recentCursor = 0;
         while (recentChannels.size() > 3) recentChannels.remove(recentChannels.size() - 1);
     }
 
@@ -241,7 +277,13 @@ public final class ChannelOverlayBridge {
                         if (children.isEmpty()) showChannelDialog(state, categoryName(selected), id);
                         else showSubcategoryDialog(state, categoryName(selected), children);
                     }
+                })
+                .setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override public void onCancel(DialogInterface d) {
+                        openDialog = null;
+                    }
                 }).show();
+        openDialog = dialog;
         styleDialog(dialog);
     }
 
@@ -267,6 +309,7 @@ public final class ChannelOverlayBridge {
                         showCategoryDialog(state);
                     }
                 }).show();
+        openDialog = dialog;
         styleDialog(dialog);
     }
 
@@ -298,6 +341,7 @@ public final class ChannelOverlayBridge {
                         showCategoryDialog(state);
                     }
                 }).show();
+        openDialog = dialog;
         styleDialog(dialog);
     }
 
