@@ -1,20 +1,20 @@
-# Optimus 1.0.20 — Overlay de categorias no player
+# Optimus 1.0.20 — Overlay lateral de canais com OK e toque
 
-Esta build corrige o crash que ocorria ao pressionar Voltar ou esquerda no player de canais. A primeira versão incluía apenas `ChannelOverlayBridge.class` no `classes8.dex`; as classes internas `ChannelOverlayBridge$State` e `ChannelOverlayBridge$1` a `$3` ficaram fora do DEX, causando `NoClassDefFoundError` no início de `show()`.
+Esta build ajusta o comportamento do overlay conforme a referência visual. No controle remoto, o botão `OK`/Enter abre o painel sobre o vídeo; `BACK` não abre mais o painel e continua com a função normal de voltar/sair. No celular, tocar no PlayerView abre o mesmo painel.
 
-O hotfix inclui todas as classes internas no DEX8. O painel mantém o vídeo ativo, apresenta as categorias reais, entra em subcategorias quando o `parentId` existe, lista os canais filtrados e usa `PlayerScreenKt.channelOverlayZap` para trocar o canal através do helper original do player.
+O painel usa diálogo lateral escurecido, com o vídeo visível ao fundo, título `Lista de Canais`, categorias reais, subcategorias e canais. A seleção mantém a reprodução ativa. Quando o evento vem do controle, a troca usa `PlayerScreenKt.channelOverlayZap`; no toque, a ponte usa o ExoPlayer atual para trocar a MediaItem e atualizar o LivePlaylist.
 
 | Item | Resultado |
 |---|---|
-| `ChannelOverlayBridge` | Presente |
-| `ChannelOverlayBridge$State` | Presente |
-| `ChannelOverlayBridge$1`, `$2`, `$3` | Presentes |
-| `classes8.dex` no APK final | Presente |
+| OK `0x17`, Enter `0x42` e DPAD center `0xa0` | Abrem o painel no player ao vivo |
+| BACK `0x04` | Mantido para voltar/sair |
+| Toque no PlayerView | Abre o painel no celular |
+| Painel lateral e vídeo ao fundo | Implementados |
+| `ChannelOverlayBridge.State` e lambdas internas | Presentes no DEX8 |
 | Assinatura Android v2/v3 | Aprovada |
-| `zipalign` | Aprovado |
-| Integridade ZIP | Aprovada |
-| Teste físico em TV Box | Ainda não executado neste ambiente |
+| `zipalign` e integridade ZIP | Aprovados |
+| Teste físico em TV Box/celular | Ainda não executado neste ambiente |
 
-SHA-256 da build: `d43d35cb59341cd1332482ff57dd3adc012e4f6c2c9c8119c08f5c474024cf67`.
+SHA-256: `6b49c986b44e4a03bcc36b66a17f5bfd35d636cb846ac5315bd770c0744fb279`.
 
-Instale por cima da versão anterior para preservar os dados locais.
+Instale por cima da versão anterior e não limpe os dados.
