@@ -112,7 +112,13 @@ public final class ChannelOverlayBridge {
             Object window = dialog.getClass().getMethod("getWindow").invoke(dialog);
             if (window == null) return;
             window.getClass().getMethod("setGravity", int.class).invoke(window, 3);
-            window.getClass().getMethod("setDimAmount", float.class).invoke(window, 0.72f);
+            window.getClass().getMethod("setDimAmount", float.class).invoke(window, 0.28f);
+            try {
+                Class<?> drawable = Class.forName("android.graphics.drawable.Drawable");
+                Class<?> colorDrawable = Class.forName("android.graphics.drawable.ColorDrawable");
+                Object background = colorDrawable.getConstructor(int.class).newInstance(0xD9161B20);
+                window.getClass().getMethod("setBackgroundDrawable", drawable).invoke(window, background);
+            } catch (Throwable ignored) {}
             window.getClass().getMethod("setLayout", int.class, int.class).invoke(window, 720, -1);
         } catch (Throwable ignored) {}
     }

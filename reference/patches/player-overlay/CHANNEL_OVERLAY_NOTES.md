@@ -1,20 +1,22 @@
-# Optimus 1.0.20 — Overlay lateral de canais com OK e toque
+# Optimus 1.0.20 — Overlay de canais com subcategorias e painel fosco
 
-Esta build ajusta o comportamento do overlay conforme a referência visual. No controle remoto, o botão `OK`/Enter abre o painel sobre o vídeo; `BACK` não abre mais o painel e continua com a função normal de voltar/sair. No celular, tocar no PlayerView abre o mesmo painel.
+Esta build corrige o crash ocorrido ao escolher uma categoria: a classe interna `ChannelOverlayBridge$4` estava ausente do DEX8. Agora todas as classes `ChannelOverlayBridge$1` a `$4` e `ChannelOverlayBridge$State` são incluídas.
 
-O painel usa diálogo lateral escurecido, com o vídeo visível ao fundo, título `Lista de Canais`, categorias reais, subcategorias e canais. A seleção mantém a reprodução ativa. Quando o evento vem do controle, a troca usa `PlayerScreenKt.channelOverlayZap`; no toque, a ponte usa o ExoPlayer atual para trocar a MediaItem e atualizar o LivePlaylist.
+A hierarquia usa `categoryId`, `parentId` e `categoryName`. Categorias de nível superior abrem uma segunda lista quando possuem filhos; ao escolher a subcategoria, são exibidos somente os canais daquele `categoryId`. Se não houver `parentId` disponível, a categoria final lista diretamente seus canais.
 
-| Item | Resultado |
+O painel agora é lateral, escurece o vídeo apenas levemente e usa uma camada `ColorDrawable` semitransparente (`0xD9161B20`) para criar efeito fosco. O vídeo continua visível ao fundo e o texto permanece em painel escuro para leitura.
+
+| Verificação | Resultado |
 |---|---|
-| OK `0x17`, Enter `0x42` e DPAD center `0xa0` | Abrem o painel no player ao vivo |
-| BACK `0x04` | Mantido para voltar/sair |
-| Toque no PlayerView | Abre o painel no celular |
-| Painel lateral e vídeo ao fundo | Implementados |
-| `ChannelOverlayBridge.State` e lambdas internas | Presentes no DEX8 |
-| Assinatura Android v2/v3 | Aprovada |
-| `zipalign` e integridade ZIP | Aprovados |
+| `ChannelOverlayBridge$4` | Presente |
+| `ChannelOverlayBridge$State` e lambdas `$1`–`$3` | Presentes |
+| `showSubcategoryDialog` e filtro por `parentId` | Presentes |
+| `ColorDrawable`/`setBackgroundDrawable` | Presentes no DEX8 |
+| Assinatura v2/v3 | Aprovada |
+| `zipalign` | Aprovado |
+| Integridade ZIP | Aprovada |
 | Teste físico em TV Box/celular | Ainda não executado neste ambiente |
 
-SHA-256: `6b49c986b44e4a03bcc36b66a17f5bfd35d636cb846ac5315bd770c0744fb279`.
+SHA-256: `3d835b64d3342c46c97883d02147d15d391b689b8f72f5275870ee24d752fd15`.
 
 Instale por cima da versão anterior e não limpe os dados.
