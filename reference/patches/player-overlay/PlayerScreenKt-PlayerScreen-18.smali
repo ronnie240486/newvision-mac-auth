@@ -257,10 +257,10 @@
     :recent_channel_previous
     if-eqz v2, :after_category_overlay
     invoke-virtual {v2}, Landroid/view/View;->getContext()Landroid/content/Context;
-    move-result-object v3
-    iget-object v4, v1, Lcom/iptv/cliente/ui/player/PlayerScreenKt$PlayerScreen$18;->$exoPlayer:Landroidx/media3/exoplayer/ExoPlayer;
-    const/4 v5, -0x1
-    invoke-static {v3, v4, v5}, Lcom/iptv/newvision/integration/ChannelOverlayBridge;->stepRecent(Landroid/content/Context;Ljava/lang/Object;I)Z
+    move-result-object v14
+    iget-object v15, v1, Lcom/iptv/cliente/ui/player/PlayerScreenKt$PlayerScreen$18;->$exoPlayer:Landroidx/media3/exoplayer/ExoPlayer;
+    const/16 v16, -0x1
+    invoke-static/range {v14 .. v16}, Lcom/iptv/newvision/integration/ChannelOverlayBridge;->stepRecent(Landroid/content/Context;Ljava/lang/Object;I)Z
     move-result v7
     if-eqz v7, :after_category_overlay
     const/4 v7, 0x1
@@ -271,10 +271,10 @@
     :recent_channel_next
     if-eqz v2, :after_category_overlay
     invoke-virtual {v2}, Landroid/view/View;->getContext()Landroid/content/Context;
-    move-result-object v3
-    iget-object v4, v1, Lcom/iptv/cliente/ui/player/PlayerScreenKt$PlayerScreen$18;->$exoPlayer:Landroidx/media3/exoplayer/ExoPlayer;
-    const/4 v5, 0x1
-    invoke-static {v3, v4, v5}, Lcom/iptv/newvision/integration/ChannelOverlayBridge;->stepRecent(Landroid/content/Context;Ljava/lang/Object;I)Z
+    move-result-object v14
+    iget-object v15, v1, Lcom/iptv/cliente/ui/player/PlayerScreenKt$PlayerScreen$18;->$exoPlayer:Landroidx/media3/exoplayer/ExoPlayer;
+    const/16 v16, 0x1
+    invoke-static/range {v14 .. v16}, Lcom/iptv/newvision/integration/ChannelOverlayBridge;->stepRecent(Landroid/content/Context;Ljava/lang/Object;I)Z
     move-result v7
     if-eqz v7, :after_category_overlay
     const/4 v7, 0x1

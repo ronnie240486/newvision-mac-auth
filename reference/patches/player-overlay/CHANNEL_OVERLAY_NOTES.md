@@ -1,20 +1,18 @@
-# Optimus 1.0.20 — EPG inferior, últimos canais e Voltar corrigido
+# Optimus 1.0.20 — Hotfix do PlayerScreen sem VerifyError
 
-Esta build mantém o EPG abaixo do nome do canal e a seção de Favoritos. As setas esquerda/direita do controle, durante a reprodução ao vivo, percorrem os três últimos canais selecionados e fazem a troca rápida diretamente no player.
+A última falha ocorria no `PlayerScreen$18`: a lógica de troca rápida reutilizava `v3` para armazenar um `Context`, mas o fluxo original esperava esse registrador como resultado booleano. O hotfix mantém o resultado de `KeyEventType.equals` como inteiro/booleano e usa `v14`–`v16` para Context, ExoPlayer e direção da troca.
 
-O botão Voltar é tratado primeiro pelo overlay. Se houver uma lista de canais aberta, retorna para as categorias principais; se houver uma subcategoria aberta, retorna para as categorias. O diálogo atual é controlado por `openDialog`, evitando o ciclo de abrir/fechar e mantendo o player reproduzindo. Quando não existe diálogo aberto, o comportamento original de saída do player permanece.
-
-| Verificação | Resultado |
+| Função | Estado |
 |---|---|
-| EPG inferior | Mantido com `SportsEpgBridge` |
-| Últimos 3 canais | Troca rápida por esquerda/direita |
-| Voltar em canais | Retorna às categorias |
-| Voltar em subcategorias | Retorna às categorias principais |
-| Loop do painel | Corrigido com `handleBack`/`openDialog` |
+| EPG abaixo do canal | Mantido |
+| Três últimos canais | Mantido; esquerda/direita trocam rapidamente |
+| Voltar do canal para categorias | Mantido |
+| Voltar da subcategoria para categorias principais | Mantido |
+| Favoritos e cor dinâmica | Mantidos |
+| `PlayerScreen$18` sem conflito de tipos | Corrigido |
 | Assinatura v2/v3 | Aprovada |
 | `zipalign` e integridade ZIP | Aprovados |
-| Teste físico em TV Box/celular | Ainda não executado neste ambiente |
 
-SHA-256: `27a9091a7dbbf8519cf37a138710d5579a66361f05bc09ec5ba5e436a61e6450`.
+SHA-256: `36104d5a86cd12cb32cc972cbd44ec02ff29a8d418d414fbcc0ba3c9edf2acd8`.
 
-Instale por cima da versão anterior e não limpe os dados.
+Instale por cima da versão anterior e não limpe os dados. O teste físico em TV Box/celular ainda precisa ser realizado.
