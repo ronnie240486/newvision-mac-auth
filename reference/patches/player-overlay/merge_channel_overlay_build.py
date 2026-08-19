@@ -3,7 +3,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import shutil
 
 work = Path('/home/ubuntu/newvision_work')
-base = work / 'ok_touch_overlay_unsigned.apk'
+base = work / 'favorites_epg_overlay_unsigned.apk'
 out = work / 'channel_overlay_merged.apk'
 replacements = {
     'classes6.dex': work / 'classes6_latest.dex',

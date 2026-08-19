@@ -14,7 +14,13 @@ import java.util.Map;
 
 /** In-player live category browser. It keeps playback alive and supports remote OK and mobile taps. */
 public final class ChannelOverlayBridge {
+    private static volatile Object liveState;
+
     private ChannelOverlayBridge() {}
+
+    public static void setLiveState(Object state) {
+        liveState = state;
+    }
 
     public static void installTouch(final View view, final Object exoPlayer) {
         if (view == null) return;
@@ -46,11 +52,12 @@ public final class ChannelOverlayBridge {
         final Object currentUrl;
         final Object zappingOverlay;
         final Object exoPlayer;
+        final Object liveState;
         List<?> streams;
         List<?> categories;
         State(Context c, Object p, Object i, Object t, Object u, Object z, Object player) {
             context = c; playlist = p; channelIndex = i; currentTitle = t; currentUrl = u;
-            zappingOverlay = z; exoPlayer = player;
+            zappingOverlay = z; exoPlayer = player; liveState = ChannelOverlayBridge.liveState;
         }
     }
 
@@ -98,6 +105,56 @@ public final class ChannelOverlayBridge {
     private static String streamCategory(Object stream) { return text(stream, "getCategoryId", ""); }
     private static String streamName(Object stream) { return text(stream, "getName", "Canal"); }
 
+    private static boolean isFavorite(State state, Object stream) {
+        try {
+            Object favorites = value(state.liveState, "getFavorites");
+            if (!(favorites instanceof java.util.Set)) return false;
+            java.util.Set<?> set = (java.util.Set<?>) favorites;
+            String id = String.valueOf(value(stream, "getStreamId"));
+            return set.contains(id) || set.contains(streamName(stream));
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static List<Object> favoriteChannels(State state) {
+        List<Object> result = new ArrayList<Object>();
+        for (Object stream : state.streams) if (isFavorite(state, stream)) result.add(stream);
+        return result;
+    }
+
+    private static String channelDisplayName(Object stream) {
+        String name = streamName(stream);
+        try {
+            Object idValue = value(stream, "getStreamId");
+            if (idValue instanceof Number) {
+                Class<?> epg = Class.forName("com.iptv.newvision.integration.SportsEpgBridge");
+                Object result = epg.getMethod("displayName", int.class, String.class)
+                        .invoke(null, ((Number) idValue).intValue(), name);
+                if (result != null && !String.valueOf(result).trim().isEmpty()) return String.valueOf(result);
+            }
+        } catch (Throwable ignored) {}
+        return name;
+    }
+
+    private static CharSequence coloredTitle(Context context, String title) {
+        String separator = "\n━━━━━━━━━━━━━━━━";
+        try {
+            Class<?> menu = Class.forName("com.iptv.newvision.integration.MenuColorStore");
+            int color = ((Number) menu.getMethod("get", Context.class).invoke(null, context)).intValue();
+            Class<?> spannable = Class.forName("android.text.SpannableString");
+            Class<?> span = Class.forName("android.text.style.ForegroundColorSpan");
+            Object styled = spannable.getConstructor(CharSequence.class).newInstance(title + separator);
+            Object colorSpan = span.getConstructor(int.class).newInstance(color);
+            int start = title.length() + 1;
+            spannable.getMethod("setSpan", Object.class, int.class, int.class, int.class)
+                    .invoke(styled, colorSpan, start, title.length() + separator.length(), 33);
+            return (CharSequence) styled;
+        } catch (Throwable ignored) {
+            return title + separator;
+        }
+    }
+
     private static void showState(final State state) {
         List<?> categories = getPlaybackList("getLiveCategories");
         List<?> streams = getPlaybackList("getLiveCatalog");
@@ -139,13 +196,22 @@ public final class ChannelOverlayBridge {
             showChannelDialog(state, "Lista de canais", "");
             return;
         }
-        final String[] labels = new String[top.size()];
-        for (int i = 0; i < top.size(); i++) labels[i] = categoryName(top.get(i));
+        final boolean hasFavorites = favoriteChannels(state).size() > 0;
+        final String[] labels = new String[top.size() + (hasFavorites ? 1 : 0)];
+        int offset = hasFavorites ? 1 : 0;
+        if (hasFavorites) labels[0] = "★ Favoritos";
+        for (int i = 0; i < top.size(); i++) labels[i + offset] = categoryName(top.get(i));
         AlertDialog dialog = new AlertDialog.Builder(state.context)
-                .setTitle("Lista de Canais")
+                .setTitle(coloredTitle(state.context, "Lista de Canais"))
                 .setItems(labels, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
-                        Object selected = top.get(which);
+                        if (hasFavorites && which == 0) {
+                            showChannelDialog(state, "★ Favoritos", "__favorites__");
+                            return;
+                        }
+                        int categoryIndex = which - (hasFavorites ? 1 : 0);
+                        if (categoryIndex < 0 || categoryIndex >= top.size()) return;
+                        Object selected = top.get(categoryIndex);
                         String id = categoryId(selected);
                         List<Object> children = childrenOf(state.categories, id);
                         if (children.isEmpty()) showChannelDialog(state, categoryName(selected), id);
@@ -178,13 +244,17 @@ public final class ChannelOverlayBridge {
     private static void showChannelDialog(final State state, String title, final String categoryId) {
         final List<Object> channels = new ArrayList<Object>();
         for (Object stream : state.streams) {
-            if (categoryId.length() == 0 || categoryId.equals(streamCategory(stream))) channels.add(stream);
+            if ("__favorites__".equals(categoryId)) {
+                if (isFavorite(state, stream)) channels.add(stream);
+            } else if (categoryId.length() == 0 || categoryId.equals(streamCategory(stream))) {
+                channels.add(stream);
+            }
         }
         if (channels.isEmpty()) return;
         final String[] labels = new String[channels.size()];
-        for (int i = 0; i < channels.size(); i++) labels[i] = streamName(channels.get(i));
+        for (int i = 0; i < channels.size(); i++) labels[i] = channelDisplayName(channels.get(i));
         AlertDialog dialog = new AlertDialog.Builder(state.context)
-                .setTitle(title)
+                .setTitle(coloredTitle(state.context, title))
                 .setItems(labels, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
                         switchChannel(state, channels, which);
