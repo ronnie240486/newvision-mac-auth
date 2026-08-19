@@ -15,6 +15,7 @@ import java.util.Map;
 /** In-player live category browser. It keeps playback alive and supports remote OK and mobile taps. */
 public final class ChannelOverlayBridge {
     private static volatile Object liveState;
+    private static final List<Object> recentChannels = new ArrayList<Object>();
 
     private ChannelOverlayBridge() {}
 
@@ -123,6 +124,21 @@ public final class ChannelOverlayBridge {
         return result;
     }
 
+    private static synchronized void rememberRecent(Object stream) {
+        if (stream == null) return;
+        String id = String.valueOf(value(stream, "getStreamId"));
+        for (int i = recentChannels.size() - 1; i >= 0; i--) {
+            String oldId = String.valueOf(value(recentChannels.get(i), "getStreamId"));
+            if (id.equals(oldId)) recentChannels.remove(i);
+        }
+        recentChannels.add(0, stream);
+        while (recentChannels.size() > 3) recentChannels.remove(recentChannels.size() - 1);
+    }
+
+    private static synchronized List<Object> recentChannelSnapshot() {
+        return new ArrayList<Object>(recentChannels);
+    }
+
     private static String channelDisplayName(Object stream) {
         String name = streamName(stream);
         try {
@@ -138,7 +154,7 @@ public final class ChannelOverlayBridge {
     }
 
     private static CharSequence coloredTitle(Context context, String title) {
-        String separator = "\n━━━━━━━━━━━━━━━━";
+        String separator = "\n━━━━";
         try {
             Class<?> menu = Class.forName("com.iptv.newvision.integration.MenuColorStore");
             int color = ((Number) menu.getMethod("get", Context.class).invoke(null, context)).intValue();
@@ -197,19 +213,27 @@ public final class ChannelOverlayBridge {
             return;
         }
         final boolean hasFavorites = favoriteChannels(state).size() > 0;
-        final String[] labels = new String[top.size() + (hasFavorites ? 1 : 0)];
-        int offset = hasFavorites ? 1 : 0;
-        if (hasFavorites) labels[0] = "★ Favoritos";
+        final boolean hasRecent = recentChannelSnapshot().size() > 0;
+        final int favoritesIndex = hasFavorites ? 0 : -1;
+        final int recentIndex = hasRecent ? (hasFavorites ? 1 : 0) : -1;
+        final int offset = (hasFavorites ? 1 : 0) + (hasRecent ? 1 : 0);
+        final String[] labels = new String[top.size() + offset];
+        if (hasFavorites) labels[favoritesIndex] = "★ Favoritos";
+        if (hasRecent) labels[recentIndex] = "⟲ Últimos 3 canais";
         for (int i = 0; i < top.size(); i++) labels[i + offset] = categoryName(top.get(i));
         AlertDialog dialog = new AlertDialog.Builder(state.context)
                 .setTitle(coloredTitle(state.context, "Lista de Canais"))
                 .setItems(labels, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
-                        if (hasFavorites && which == 0) {
+                        if (hasFavorites && which == favoritesIndex) {
                             showChannelDialog(state, "★ Favoritos", "__favorites__");
                             return;
                         }
-                        int categoryIndex = which - (hasFavorites ? 1 : 0);
+                        if (hasRecent && which == recentIndex) {
+                            showChannelDialog(state, "⟲ Últimos 3 canais", "__recent__");
+                            return;
+                        }
+                        int categoryIndex = which - offset;
                         if (categoryIndex < 0 || categoryIndex >= top.size()) return;
                         Object selected = top.get(categoryIndex);
                         String id = categoryId(selected);
@@ -231,11 +255,16 @@ public final class ChannelOverlayBridge {
         final String[] labels = new String[subcategories.size()];
         for (int i = 0; i < subcategories.size(); i++) labels[i] = categoryName(subcategories.get(i));
         AlertDialog dialog = new AlertDialog.Builder(state.context)
-                .setTitle(title)
+                .setTitle(coloredTitle(state.context, title))
                 .setItems(labels, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
                         Object selected = subcategories.get(which);
                         showChannelDialog(state, categoryName(selected), categoryId(selected));
+                    }
+                })
+                .setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override public void onCancel(DialogInterface d) {
+                        showCategoryDialog(state);
                     }
                 }).show();
         styleDialog(dialog);
@@ -243,11 +272,15 @@ public final class ChannelOverlayBridge {
 
     private static void showChannelDialog(final State state, String title, final String categoryId) {
         final List<Object> channels = new ArrayList<Object>();
-        for (Object stream : state.streams) {
-            if ("__favorites__".equals(categoryId)) {
-                if (isFavorite(state, stream)) channels.add(stream);
-            } else if (categoryId.length() == 0 || categoryId.equals(streamCategory(stream))) {
-                channels.add(stream);
+        if ("__recent__".equals(categoryId)) {
+            channels.addAll(recentChannelSnapshot());
+        } else {
+            for (Object stream : state.streams) {
+                if ("__favorites__".equals(categoryId)) {
+                    if (isFavorite(state, stream)) channels.add(stream);
+                } else if (categoryId.length() == 0 || categoryId.equals(streamCategory(stream))) {
+                    channels.add(stream);
+                }
             }
         }
         if (channels.isEmpty()) return;
@@ -259,6 +292,11 @@ public final class ChannelOverlayBridge {
                     @Override public void onClick(DialogInterface d, int which) {
                         switchChannel(state, channels, which);
                     }
+                })
+                .setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override public void onCancel(DialogInterface d) {
+                        showCategoryDialog(state);
+                    }
                 }).show();
         styleDialog(dialog);
     }
@@ -267,6 +305,7 @@ public final class ChannelOverlayBridge {
         if (which < 0 || which >= channels.size()) return;
         try {
             Object chosen = channels.get(which);
+            rememberRecent(chosen);
             List<Object> newList = new ArrayList<Object>(channels);
             if (state.exoPlayer != null) {
                 directSwitch(state, chosen, newList, which);
