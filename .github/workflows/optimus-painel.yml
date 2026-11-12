@@ -1,13 +1,17 @@
-name: Optimus - corrigir painel (Railway + Assistindo)
+name: Optimus - logo OP, painel e ajustes
 
-# Corrige o APK pronto do Optimus SEM reconstruir o app inteiro: troca só o endereço do painel
-# (Manus -> Railway) e faz o heartbeat mandar "__idle__" quando nada está tocando.
-# Como usar: roda sozinho quando este arquivo é enviado ao repositório (não precisa do botão Run workflow).
-# Também dá para rodar à mão: aba Actions > "Optimus - corrigir painel" > Run workflow. O APK sai em Artifacts.
+# Corrige o APK pronto do Optimus SEM reconstruir o app inteiro:
+#  - painel: troca Manus -> Railway e faz o heartbeat mandar "__idle__" quando nada toca
+#  - logo OP no ícone do app (todas as telas de lançador, banner de TV, splash, ativação) e dentro do app
+#  - tira o botão "Sair" do menu lateral (dava erro ao clicar)
+#  - tira o aviso de atualização que ficava aparecendo na tela
+# Como usar: suba primeiro o arquivo optimus_logo.png na raiz do repositório e depois este arquivo.
+# Roda sozinho quando um dos dois é enviado. O APK sai em Actions > (execução) > Artifacts.
 on:
   push:
     paths:
       - ".github/workflows/optimus-painel.yml"
+      - "optimus_logo.png"
   workflow_dispatch:
     inputs:
       apk:
@@ -19,17 +23,20 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Baixar só o APK escolhido
+      - name: Baixar só o APK escolhido e a logo
         uses: actions/checkout@v4
         with:
-          sparse-checkout: ${{ inputs.apk || 'Optimus1.0.20-global-bg-profile-menu-delete-fixed.apk' }}
+          sparse-checkout: |
+            ${{ inputs.apk || 'Optimus1.0.20-global-bg-profile-menu-delete-fixed.apk' }}
+            optimus_logo.png
           sparse-checkout-cone-mode: false
 
-      - name: Instalar ferramentas (smali/baksmali e zip)
+      - name: Instalar ferramentas (smali/baksmali, zip e Pillow)
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q smali zip unzip
           command -v baksmali && command -v smali
+          pip install -q pillow
 
       - name: Chave de assinatura (guardada em cache entre execuções)
         id: keycache
@@ -51,11 +58,15 @@ jobs:
         run: |
           set -euo pipefail
           test -f "$APK" || { echo "APK não encontrado: $APK"; exit 1; }
-          mkdir -p work/dex work/new
+          test -f optimus_logo.png || { echo "Falta o arquivo optimus_logo.png na raiz do repositório (suba a logo e rode de novo)"; exit 1; }
+          mkdir -p work/dex work/new work/res
           cd work/dex && unzip -q "../../$APK" 'classes*.dex' && cd ../..
 
-          cat > patch_panel.py <<'PYEOF'
-          import os, re, sys
+          cat > patch_all.py <<'PYEOF'
+          """Patches de smali do Optimus (rodam sobre a pasta gerada pelo baksmali de UM dex).
+          Uso: python3 patch_all.py <pasta_smali> <arquivo_de_relatorio>
+          Cada patch aplicado é anotado no relatório; o workflow confere no fim que todos entraram."""
+          import os, sys
 
           OLD = "https://renciaapp.manus.space"
           NEW = "https://renciaapp-production.up.railway.app"
@@ -79,9 +90,50 @@ jobs:
 
               :ominus_keep
           """
+          LOGO_URI = "file:///android_asset/optimus_logo.png"
+
+
+          def read(p):
+              return open(p, encoding="utf-8").read()
+
+
+          def write(p, t):
+              open(p, "w", encoding="utf-8").write(t)
+
+
+          def find(root, suffix):
+              """Acha arquivos smali cujo caminho termina exatamente em suffix (com fronteira de pasta)."""
+              out = []
+              for dp, _, fs in os.walk(root):
+                  for n in fs:
+                      p = os.path.join(dp, n).replace("\\", "/")
+                      if p.endswith("/" + suffix):
+                          out.append(os.path.join(dp, n))
+              return out
+
+
+          def insert_after_locals(path, method_header, new_lines, marker):
+              """Entra logo depois do .locals/.registers do método. Devolve 'aplicado' / 'ja-aplicado'."""
+              text = read(path)
+              if marker in text:
+                  return "ja-aplicado"
+              lines = text.split("\n")
+              try:
+                  start = next(i for i, l in enumerate(lines) if l.strip() == method_header)
+              except StopIteration:
+                  raise SystemExit("ERRO: metodo nao encontrado: " + method_header + " em " + path)
+              j = start + 1
+              while not lines[j].strip().startswith((".locals", ".registers")):
+                  if lines[j].strip().startswith(".end method"):
+                      raise SystemExit("ERRO: .locals nao encontrado em " + method_header)
+                  j += 1
+              lines[j + 1:j + 1] = [""] + new_lines
+              write(path, "\n".join(lines))
+              return "aplicado"
+
 
           def patch_heartbeat(path):
-              text = open(path, encoding="utf-8").read()
+              text = read(path)
               if "__idle__" in text:
                   return "ja-aplicado"
               lines = text.split("\n")
@@ -108,80 +160,196 @@ jobs:
               if registers_line is None:
                   raise SystemExit("ERRO: .registers/.locals nao encontrado no metodo heartbeat")
               n = int(registers_line.split()[1])
-              free = n - 3 if registers_line.startswith(".registers") else n  # p0, p1, p2 sao parametros
+              free = n - 3 if registers_line.startswith(".registers") else n
               if free < 1:
                   raise SystemExit("ERRO: heartbeat sem registrador livre (" + registers_line + ")")
               lines[i:i] = IDLE_BLOCK.rstrip("\n").split("\n") + [""]
-              open(path, "w", encoding="utf-8").write("\n".join(lines))
+              write(path, "\n".join(lines))
               return "aplicado"
 
-          def main(root):
-              replaced_files = 0
-              gateway = None
-              for dirpath, _, files in os.walk(root):
-                  for name in files:
-                      if not name.endswith(".smali"):
-                          continue
-                      path = os.path.join(dirpath, name)
-                      text = open(path, encoding="utf-8").read()
-                      if OLD in text:
-                          open(path, "w", encoding="utf-8").write(text.replace(OLD, NEW))
-                          replaced_files += 1
-                      if path.replace("\\", "/").endswith("com/iptv/newvision/integration/RenciaGateway.smali"):
-                          gateway = path
-              if replaced_files == 0:
-                  raise SystemExit("ERRO: o endereco antigo nao foi encontrado em nenhum smali")
-              print("endereco do painel trocado em", replaced_files, "arquivo(s) smali")
-              if gateway is None:
-                  raise SystemExit("ERRO: RenciaGateway.smali nao encontrado")
-              print("heartbeat:", patch_heartbeat(gateway))
+
+          def patch_panel(root, report):
+              replaced = 0
+              for dp, _, fs in os.walk(root):
+                  for n in fs:
+                      if n.endswith(".smali"):
+                          p = os.path.join(dp, n)
+                          t = read(p)
+                          if OLD in t:
+                              write(p, t.replace(OLD, NEW))
+                              replaced += 1
+              if replaced:
+                  print("endereco do painel trocado em", replaced, "arquivo(s) smali")
+                  report.add("painel")
+              for g in find(root, "com/iptv/newvision/integration/RenciaGateway.smali"):
+                  print("heartbeat:", patch_heartbeat(g))
+                  report.add("heartbeat")
+
+
+          def patch_update_banner(root, report):
+              """Aviso de atualização fixo na tela: a função que desenha o banner passa a não fazer nada."""
+              for p in find(root, "com/iptv/cliente/ui/components/UpdateBannerKt.smali"):
+                  r = insert_after_locals(
+                      p, ".method public static final UpdateBanner(Landroidx/compose/runtime/Composer;I)V",
+                      ["    # Optimus: sem aviso de atualizacao na tela", "    return-void"],
+                      "# Optimus: sem aviso de atualizacao na tela")
+                  print("aviso de atualizacao:", r)
+                  report.add("atualizacao")
+
+
+          def patch_logout(root, report):
+              """Tira o item 'Sair' do menu lateral (o clique dava erro)."""
+              for p in find(root, "com/iptv/cliente/ui/components/SideNavKt.smali"):
+                  text = read(p)
+                  if "# Optimus: item Sair removido" in text:
+                      print("botao sair: ja-aplicado")
+                      report.add("sair")
+                      continue
+                  lines = text.split("\n")
+                  hits = [i for i, l in enumerate(lines) if l.strip() == 'const-string v8, "Sair"']
+                  if len(hits) != 1:
+                      raise SystemExit("ERRO: esperava 1 item 'Sair' no SideNav, achei %d" % len(hits))
+                  k = next((j for j in range(hits[0], hits[0] + 12) if "SideNavKt;->SideItem(" in lines[j]), None)
+                  if k is None:
+                      raise SystemExit("ERRO: chamada SideItem do 'Sair' nao encontrada")
+                  lines[k] = "    # Optimus: item Sair removido (nao desenha o botao)"
+                  write(p, "\n".join(lines))
+                  print("botao sair: aplicado")
+                  report.add("sair")
+
+
+          def patch_logo(root, report):
+              """Logo dentro do app: sempre o arquivo que vai junto no APK (assets/optimus_logo.png)."""
+              for p in find(root, "com/iptv/cliente/data/platform/PlatformBranding.smali"):
+                  r = insert_after_locals(
+                      p, ".method public final getLogoUrl()Ljava/lang/String;",
+                      ["    # Optimus: logo OP embutida no app", '    const-string v0, "%s"' % LOGO_URI, "    return-object v0"],
+                      "# Optimus: logo OP embutida no app")
+                  print("logo interna:", r)
+                  report.add("logo")
+
+
+          class Report(set):
+              pass
+
 
           if __name__ == "__main__":
-              main(sys.argv[1])
+              root, out = sys.argv[1], sys.argv[2]
+              rep = Report()
+              patch_panel(root, rep)
+              patch_update_banner(root, rep)
+              patch_logout(root, rep)
+              patch_logo(root, rep)
+              with open(out, "a") as f:
+                  for x in sorted(rep):
+                      f.write(x + "\n")
           PYEOF
 
-          # descobre qual classesN.dex tem o endereço antigo
-          TARGET=$(python3 - <<'PYEOF'
-          import glob
-          for f in sorted(glob.glob("work/dex/classes*.dex")):
-              if b"renciaapp.manus.space" in open(f, "rb").read():
-                  print(f); break
+          cat > make_assets.py <<'PYEOF'
+          """Gera as imagens novas (ícones, banner, splash, logo da ativação) a partir da logo OP.
+          Uso: python3 make_assets.py <apk_origem> <optimus_logo.png> <pasta_saida>
+          Mantém o tamanho de cada imagem que já existe no APK, só troca o desenho."""
+          import io, os, re, sys, zipfile
+          from PIL import Image
+
+          apk, logo_path, out = sys.argv[1:4]
+          logo = Image.open(logo_path).convert("RGBA")
+          z = zipfile.ZipFile(apk)
+          BG = (13, 19, 31, 255)  # azul-marinho da própria logo, para banner de TV
+
+          def fit_square(size):
+              return logo.resize((size, size), Image.LANCZOS)
+
+          def save(img, rel, fmt):
+              path = os.path.join(out, rel)
+              os.makedirs(os.path.dirname(path), exist_ok=True)
+              if fmt == "WEBP":
+                  img.save(path, "WEBP", quality=95, method=6)
+              else:
+                  img.save(path, "PNG", optimize=True)
+              print("gerado", rel, img.size)
+
+          done = 0
+          for name in z.namelist():
+              if not name.startswith("res/drawable"):
+                  continue
+              base = os.path.basename(name)
+              if re.fullmatch(r"ic_launcher(_round)?\.webp", base) or base == "splash_logo.webp":
+                  w, h = Image.open(io.BytesIO(z.read(name))).size
+                  save(fit_square(min(w, h)).resize((w, h), Image.LANCZOS) if w != h else fit_square(w), name, "WEBP"); done += 1
+              elif base == "optimus_activation_logo.png":
+                  w, h = Image.open(io.BytesIO(z.read(name))).size
+                  save(fit_square(min(w, h)), name, "PNG"); done += 1
+              elif base == "banner.webp":
+                  w, h = Image.open(io.BytesIO(z.read(name))).size
+                  canvas = Image.new("RGBA", (w, h), BG)
+                  side = int(h * 0.94)
+                  canvas.alpha_composite(fit_square(side), ((w - side) // 2, (h - side) // 2))
+                  save(canvas.convert("RGB"), name, "WEBP"); done += 1
+
+          if done < 10:
+              raise SystemExit("ERRO: so %d imagens de icone encontradas (esperava 14+)" % done)
+          os.makedirs(os.path.join(out, "assets"), exist_ok=True)
+          logo.resize((768, 768), Image.LANCZOS).save(os.path.join(out, "assets", "optimus_logo.png"), optimize=True)
+          print("gerado assets/optimus_logo.png; total de imagens trocadas:", done)
           PYEOF
-          )
-          test -n "$TARGET" || { echo "Endereço antigo não encontrado em nenhum dex (o APK já foi corrigido?)"; exit 1; }
-          NAME=$(basename "$TARGET")
-          echo "Dex alvo: $NAME"
 
-          baksmali d "$TARGET" -o work/smali
-          python3 patch_panel.py work/smali
-          smali a work/smali -o "work/new/$NAME"
+          # 1) smali: só os dex que têm algo a corrigir
+          : > work/applied.txt
+          CHANGED=""
+          for F in work/dex/classes*.dex; do
+            NAME=$(basename "$F")
+            if grep -aq -e "renciaapp.manus.space" -e "UpdateBannerKt" -e "PlatformBranding" -e "ui/components/SideNavKt" "$F"; then
+              echo "== $NAME"
+              baksmali d "$F" -o "work/smali_$NAME"
+              python3 patch_all.py "work/smali_$NAME" work/applied.txt
+              smali a "work/smali_$NAME" -o "work/new/$NAME"
+              CHANGED="$CHANGED $NAME"
+            fi
+          done
+          test -n "$CHANGED" || { echo "Nenhum dex para corrigir"; exit 1; }
+          sort -u work/applied.txt > work/applied_u.txt
+          echo "Patches aplicados:"; cat work/applied_u.txt
+          for P in painel heartbeat atualizacao sair logo; do
+            grep -qx "$P" work/applied_u.txt || { echo "ERRO: patch '$P' não foi aplicado"; exit 1; }
+          done
 
+          # 2) imagens: ícones, banner, splash, logo da ativação e logo interna
+          python3 make_assets.py "$APK" optimus_logo.png work/res
+
+          # 3) monta o APK
           cp "$APK" work/unsigned.apk
           zip -q -d work/unsigned.apk 'META-INF/*' || true
-          (cd work/new && zip -q ../unsigned.apk "$NAME")
+          (cd work/new && zip -q ../unsigned.apk $CHANGED)
+          (cd work/res && zip -q -r -D ../unsigned.apk res assets)
 
           BT=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/* | sort -V | tail -1)
           "$BT/zipalign" -p -f 4 work/unsigned.apk work/aligned.apk
-          OUT="Optimus-painel-corrigido.apk"
+          OUT="Optimus-ajustado.apk"
           "$BT/apksigner" sign --ks optimus.keystore --ks-key-alias optimus \
             --ks-pass pass:optimus-test-key --key-pass pass:optimus-test-key \
             --out "$OUT" work/aligned.apk
           "$BT/apksigner" verify --verbose "$OUT"
 
-          # conferência final: o endereço novo está dentro do APK e o antigo saiu
+          # conferência final dentro do APK pronto
           python3 - <<'PYEOF'
           import zipfile
-          z = zipfile.ZipFile("Optimus-painel-corrigido.apk")
-          dex = b"".join(z.read(n) for n in z.namelist() if n.startswith("classes") and n.endswith(".dex"))
+          z = zipfile.ZipFile("Optimus-ajustado.apk")
+          names = z.namelist()
+          dex = b"".join(z.read(n) for n in names if n.startswith("classes") and n.endswith(".dex"))
           assert b"renciaapp-production.up.railway.app" in dex, "Railway não encontrado no APK final"
           assert b"renciaapp.manus.space" not in dex, "Manus ainda presente no APK final"
           assert b"__idle__" in dex, "Sentinela __idle__ ausente no APK final"
-          print("OK: Railway presente, Manus removido, __idle__ presente")
+          assert b"file:///android_asset/optimus_logo.png" in dex, "Logo interna não ligada"
+          assert "assets/optimus_logo.png" in names, "assets/optimus_logo.png ausente"
+          for n in ("res/drawable/ic_launcher.webp", "res/drawable-xxxhdpi/ic_launcher.webp", "res/drawable/banner.webp"):
+              assert n in names, n + " ausente"
+          print("OK: painel, logo interna, ícones e ajustes presentes no APK final")
           PYEOF
           sha256sum "$OUT"
 
-      - name: Guardar o APK corrigido
+      - name: Guardar o APK ajustado
         uses: actions/upload-artifact@v4
         with:
-          name: Optimus-painel-corrigido
-          path: Optimus-painel-corrigido.apk
+          name: Optimus-ajustado
+          path: Optimus-ajustado.apk
