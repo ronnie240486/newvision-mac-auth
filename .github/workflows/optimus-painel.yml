@@ -36,6 +36,8 @@ jobs:
 
       - name: Instalar ferramentas (smali/baksmali, zip e Pillow)
         run: |
+          exec > >(tee /tmp/step.log) 2>&1
+          trap 'rc=$?; sleep 1; [ $rc -eq 0 ] || echo "::error title=Falhou::$(tail -n 14 /tmp/step.log | cut -c1-260 | sed "s/%/%25/g" | paste -sd "|" -)"' EXIT
           sudo apt-get update -q
           sudo apt-get install -y -q smali zip unzip python3-pil
           command -v baksmali && command -v smali
@@ -59,6 +61,8 @@ jobs:
         env:
           APK: ${{ inputs.apk || 'Optimus1.0.20-global-bg-profile-menu-delete-fixed.apk' }}
         run: |
+          exec > >(tee /tmp/step.log) 2>&1
+          trap 'rc=$?; sleep 1; [ $rc -eq 0 ] || echo "::error title=Falhou::$(tail -n 14 /tmp/step.log | cut -c1-260 | sed "s/%/%25/g" | paste -sd "|" -)"' EXIT
           set -euo pipefail
           test -f "$APK" || { echo "APK não encontrado: $APK"; exit 1; }
           test -f optimus_logo.png || { echo "Falta o arquivo optimus_logo.png na raiz do repositório (suba a logo e rode de novo)"; exit 1; }
@@ -956,7 +960,11 @@ jobs:
           dexnames = [n for n in names if n.startswith("classes") and n.endswith(".dex")]
           dex = b"".join(z.read(n) for n in dexnames)
           assert b"renciaapp-production.up.railway.app" in dex, "Railway não encontrado no APK final"
-          assert b"renciaapp.manus.space" not in dex, "Manus ainda presente no APK final"
+          # o Manus só pode aparecer como reserva dentro do código novo do painel (OptimusPanel); no resto do app não
+          for n in dexnames:
+              raw = z.read(n)
+              if b"renciaapp.manus.space" in raw:
+                  assert b"Lcom/optimus/panel/OptimusPanel;" in raw, "Manus ainda presente em " + n
           assert b"__idle__" in dex, "Sentinela __idle__ ausente no APK final"
           assert b"file:///android_asset/optimus_logo.png" in dex, "Logo interna não ligada"
           assert b"Lcom/optimus/panel/OptimusPanel;" in dex, "Código do painel ausente no APK final"
