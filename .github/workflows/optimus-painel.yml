@@ -1,11 +1,14 @@
-name: Optimus - logo OP, painel e ajustes
+name: Optimus - logo OP, painel, Assistindo e ajustes
 
 # Corrige o APK pronto do Optimus SEM reconstruir o app inteiro:
-#  - painel: troca Manus -> Railway e faz o heartbeat mandar "__idle__" quando nada toca
-#  - logo OP no ícone do app (todas as telas de lançador, banner de TV, splash, ativação) e dentro do app
-#  - tira o botão "Sair" do menu lateral (dava erro ao clicar)
+#  - painel: Railway no lugar do Manus e heartbeat com "__idle__" quando nada toca
+#  - "Assistindo": o painel passa a mostrar o canal/filme/série que o cliente está vendo (igual ao Ouro Pro/Maximus)
+#  - avisos da lista, aviso de vencimento e mensagens do painel aparecem na tela; comandos remotos funcionam
+#  - falha de reprodução avisa o painel; troca automática de lista (reserva e volta para a principal)
+#  - logo OP no ícone do app (todos os tamanhos, banner de TV, splash, ativação) e dentro do app
+#  - "Sair" (menu) e "Deslogar" (Configurações) FECHAM o app, sem apagar o login
 #  - tira o aviso de atualização que ficava aparecendo na tela
-# Como usar: suba primeiro o arquivo optimus_logo.png na raiz do repositório e depois este arquivo.
+# Como usar: suba optimus_logo.png na raiz do repositório (se ainda não estiver) e este arquivo em .github/workflows.
 # Roda sozinho quando um dos dois é enviado. O APK sai em Actions > (execução) > Artifacts.
 on:
   push:
@@ -59,7 +62,7 @@ jobs:
           set -euo pipefail
           test -f "$APK" || { echo "APK não encontrado: $APK"; exit 1; }
           test -f optimus_logo.png || { echo "Falta o arquivo optimus_logo.png na raiz do repositório (suba a logo e rode de novo)"; exit 1; }
-          mkdir -p work/dex work/new work/res
+          mkdir -p work/dex work/new work/res work/jc work/d8
           cd work/dex && unzip -q "../../$APK" 'classes*.dex' && cd ../..
 
           cat > patch_all.py <<'PYEOF'
@@ -197,25 +200,47 @@ jobs:
                   report.add("atualizacao")
 
 
-          def patch_logout(root, report):
-              """Tira o item 'Sair' do menu lateral (o clique dava erro)."""
-              for p in find(root, "com/iptv/cliente/ui/components/SideNavKt.smali"):
-                  text = read(p)
-                  if "# Optimus: item Sair removido" in text:
-                      print("botao sair: ja-aplicado")
-                      report.add("sair")
-                      continue
-                  lines = text.split("\n")
-                  hits = [i for i, l in enumerate(lines) if l.strip() == 'const-string v8, "Sair"']
-                  if len(hits) != 1:
-                      raise SystemExit("ERRO: esperava 1 item 'Sair' no SideNav, achei %d" % len(hits))
-                  k = next((j for j in range(hits[0], hits[0] + 12) if "SideNavKt;->SideItem(" in lines[j]), None)
-                  if k is None:
-                      raise SystemExit("ERRO: chamada SideItem do 'Sair' nao encontrada")
-                  lines[k] = "    # Optimus: item Sair removido (nao desenha o botao)"
+          def patch_close_app(root, report):
+              """'Sair' (menu) e 'Deslogar' (configuracoes) passam a FECHAR o app, sem apagar o login.
+              Todos os caminhos de logout do app passam por AppNav$doLogout, entao o ajuste e num lugar so."""
+              for p in find(root, "com/iptv/cliente/MainActivityKt.smali"):
+                  r = insert_after_locals(
+                      p, ".method private static final AppNav$doLogout(Lkotlinx/coroutines/CoroutineScope;Landroidx/navigation/NavHostController;)V",
+                      ["    # Optimus: Sair/Deslogar fecham o aplicativo (nao apagam o login)",
+                       "    invoke-static {}, Landroid/os/Process;->myPid()I",
+                       "    move-result v0",
+                       "    invoke-static {v0}, Landroid/os/Process;->killProcess(I)V",
+                       "    const/4 v0, 0x0",
+                       "    invoke-static {v0}, Ljava/lang/System;->exit(I)V",
+                       "    return-void"],
+                      "# Optimus: Sair/Deslogar fecham o aplicativo")
+                  print("fechar app:", r)
+                  report.add("fechar")
+
+
+          def replace_const_string(root, suffix, old_text_start, new_value, key, report):
+              for p in find(root, suffix):
+                  t = read(p)
+                  lines = t.split("\n")
+                  hit = [i for i, l in enumerate(lines) if l.strip().startswith("const-string") and old_text_start in l]
+                  if not hit:
+                      if new_value in t:
+                          print(key + ": ja-aplicado"); report.add(key); continue
+                      raise SystemExit("ERRO: texto nao encontrado (%s) em %s" % (old_text_start, p))
+                  for i in hit:
+                      reg = lines[i].split()[1].rstrip(",")
+                      lines[i] = '    const-string %s, "%s"' % (reg, new_value)
                   write(p, "\n".join(lines))
-                  print("botao sair: aplicado")
-                  report.add("sair")
+                  print(key + ": aplicado"); report.add(key)
+
+
+          def patch_close_texts(root, report):
+              replace_const_string(root, "com/iptv/cliente/ui/components/ComposableSingletons$SideNavKt$lambda-3$1.smali",
+                                   "Sair da conta?", "Fechar o aplicativo?", "fechar_titulo", report)
+              replace_const_string(root, "com/iptv/cliente/ui/components/ComposableSingletons$SideNavKt$lambda-4$1.smali",
+                                   "digitar usu", "O aplicativo ser\\u00e1 fechado. Confirma que quer sair?", "fechar_texto", report)
+              replace_const_string(root, "com/iptv/cliente/ui/settings/SettingsScreenKt.smali",
+                                   '"Deslogar"', "Fechar app", "fechar_config", report)
 
 
           def patch_logo(root, report):
@@ -229,6 +254,47 @@ jobs:
                   report.add("logo")
 
 
+          def patch_panel_hooks(root, report):
+              """Liga o OptimusPanel (código novo, em dex à parte) nos pontos certos do app."""
+              ONE = "# Optimus: gancho do painel"
+              for p in find(root, "com/iptv/cliente/App.smali"):
+                  text = read(p)
+                  if ONE in text:
+                      print("gancho App: ja-aplicado"); report.add("hook_app"); continue
+                  lines = text.split("\n")
+                  start = next((i for i, l in enumerate(lines) if l.strip() == ".method public onCreate()V"), None)
+                  if start is None:
+                      raise SystemExit("ERRO: App.onCreate nao encontrado")
+                  sup = next((j for j in range(start, len(lines))
+                              if lines[j].strip() == "invoke-super {p0}, Landroid/app/Application;->onCreate()V"), None)
+                  if sup is None:
+                      raise SystemExit("ERRO: invoke-super de App.onCreate nao encontrado")
+                  lines[sup + 1:sup + 1] = ["", "    " + ONE,
+                                            "    invoke-static {p0}, Lcom/optimus/panel/OptimusPanel;->start(Landroid/app/Application;)V"]
+                  write(p, "\n".join(lines))
+                  print("gancho App: aplicado"); report.add("hook_app")
+              for p in find(root, "com/iptv/cliente/data/PlaybackContext.smali"):
+                  r1 = insert_after_locals(
+                      p, ".method public final setPending(Lcom/iptv/cliente/data/PlaybackContext$Request;)V",
+                      ["    " + ONE + " (conteudo novo)",
+                       "    invoke-static {p1}, Lcom/optimus/panel/OptimusPanel;->onPending(Ljava/lang/Object;)V"],
+                      ONE + " (conteudo novo)")
+                  r2 = insert_after_locals(
+                      p, ".method public final setPlayerActive(Z)V",
+                      ["    " + ONE + " (player ativo)",
+                       "    invoke-static {p1}, Lcom/optimus/panel/OptimusPanel;->onPlayerActive(Z)V"],
+                      ONE + " (player ativo)")
+                  print("gancho conteudo:", r1, "| gancho player:", r2)
+                  report.add("hook_pending"); report.add("hook_active")
+              for p in find(root, "com/iptv/cliente/ui/player/PlayerScreenKt$PlayerScreen$exoPlayer$1$1$1.smali"):
+                  r = insert_after_locals(
+                      p, ".method public onPlayerError(Landroidx/media3/common/PlaybackException;)V",
+                      ["    " + ONE + " (erro do player)",
+                       "    invoke-static {}, Lcom/optimus/panel/OptimusPanel;->onPlayerError()V"],
+                      ONE + " (erro do player)")
+                  print("gancho erro do player:", r); report.add("hook_error")
+
+
           class Report(set):
               pass
 
@@ -238,8 +304,10 @@ jobs:
               rep = Report()
               patch_panel(root, rep)
               patch_update_banner(root, rep)
-              patch_logout(root, rep)
+              patch_close_app(root, rep)
+              patch_close_texts(root, rep)
               patch_logo(root, rep)
+              patch_panel_hooks(root, rep)
               with open(out, "a") as f:
                   for x in sorted(rep):
                       f.write(x + "\n")
@@ -294,36 +362,585 @@ jobs:
           print("gerado assets/optimus_logo.png; total de imagens trocadas:", done)
           PYEOF
 
+          mkdir -p src/com/optimus/panel
+          cat > src/com/optimus/panel/OptimusPanel.java <<'JEOF'
+          package com.optimus.panel;
+
+          import android.app.Activity;
+          import android.app.AlertDialog;
+          import android.app.Application;
+          import android.content.Context;
+          import android.content.DialogInterface;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.widget.Toast;
+
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          import java.io.BufferedReader;
+          import java.io.InputStream;
+          import java.io.InputStreamReader;
+          import java.io.OutputStream;
+          import java.lang.ref.WeakReference;
+          import java.lang.reflect.Method;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.net.URLEncoder;
+          import java.nio.charset.StandardCharsets;
+          import java.util.HashSet;
+          import java.util.List;
+          import java.util.Set;
+          import java.util.concurrent.Executors;
+          import java.util.concurrent.ScheduledExecutorService;
+          import java.util.concurrent.TimeUnit;
+
+          /**
+           * Ligação do Optimus com o painel (igual ao que o Ouro Pro/Maximus fazem):
+           *  - "Assistindo": manda o título do que está tocando (ou __idle__ quando nada toca), na hora e a cada 60 s;
+           *  - avisos da lista, aviso de vencimento e mensagens do painel, mostrados na tela e confirmados;
+           *  - comandos remotos (exibir aviso, trocar lista, atualizar lista/DNS, reiniciar player, sincronizar acesso);
+           *  - falha de reprodução: avisa o painel, que troca a DNS/lista; o app recarrega na lista nova;
+           *  - troca automática de lista quando o painel coloca o cliente na lista reserva (e volta para a principal).
+           * Só usa as classes do app por reflexão, então não quebra se algum nome mudar: no pior caso, esse recurso fica parado.
+           */
+          public final class OptimusPanel {
+              private static final String[] BASES = {
+                      "https://renciaapp-production.up.railway.app",
+                      "https://renciaapp.manus.space"
+              };
+              private static final String APP_ID = "optimus";
+              private static final String IDLE = "__idle__";
+              private static final String PREFS = "optimus_panel_prefs";
+              private static final String INTEGRATION = "com.iptv.newvision.integration.";
+
+              private static final Handler MAIN = new Handler(Looper.getMainLooper());
+              private static final Object LOCK = new Object();
+              private static final Set<Long> SHOWN_ALERTS = new HashSet<Long>();
+
+              private static Application app;
+              private static ScheduledExecutorService executor;
+              private static volatile WeakReference<Activity> top = new WeakReference<Activity>(null);
+              private static volatile boolean started;
+              private static volatile boolean playerActive;
+              private static volatile String pendingTitle;
+              private static volatile String lastSentContent = "";
+              private static volatile boolean sendAppId = true;
+              private static volatile long lastReloadAt;
+              private static volatile long lastFailureReportAt;
+              private static volatile boolean failureInFlight;
+              private static volatile boolean reloading;
+              private static long firstErrorAt;
+              private static int errorCount;
+
+              private OptimusPanel() {}
+
+              // ------------------------------------------------------------------ ganchos chamados pelo app
+
+              /** Application.onCreate */
+              public static void start(Application application) {
+                  synchronized (LOCK) {
+                      if (started || application == null) return;
+                      started = true;
+                      app = application;
+                  }
+                  try {
+                      application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
+                          @Override public void onActivityResumed(Activity a) { top = new WeakReference<Activity>(a); }
+                          @Override public void onActivityPaused(Activity a) {
+                              Activity cur = top.get();
+                              if (cur == a) top = new WeakReference<Activity>(null);
+                          }
+                          @Override public void onActivityCreated(Activity a, Bundle b) {}
+                          @Override public void onActivityStarted(Activity a) {}
+                          @Override public void onActivityStopped(Activity a) {}
+                          @Override public void onActivitySaveInstanceState(Activity a, Bundle b) {}
+                          @Override public void onActivityDestroyed(Activity a) {}
+                      });
+                  } catch (Throwable ignored) {
+                  }
+                  executor = Executors.newSingleThreadScheduledExecutor();
+                  executor.scheduleWithFixedDelay(new Runnable() {
+                      @Override public void run() { cycle(); }
+                  }, 8, 60, TimeUnit.SECONDS);
+              }
+
+              /** PlaybackContext.setPending(Request): chegou um novo conteúdo para tocar (ou troca de canal/episódio). */
+              public static void onPending(Object request) {
+                  try {
+                      if (request == null) return;
+                      Object title = request.getClass().getMethod("getTitle").invoke(request);
+                      pendingTitle = title instanceof String ? ((String) title).trim() : null;
+                      if (playerActive) pushContentNow();
+                  } catch (Throwable ignored) {
+                  }
+              }
+
+              /** PlaybackContext.setPlayerActive(boolean): a tela do player abriu/fechou. */
+              public static void onPlayerActive(boolean active) {
+                  playerActive = active;
+                  if (!active) {
+                      errorCount = 0;
+                  }
+                  pushContentNow();
+              }
+
+              /** onPlayerError do player: se repetir, avisa o painel para trocar DNS/lista. */
+              public static void onPlayerError() {
+                  if (!started) return;
+                  long now = System.currentTimeMillis();
+                  synchronized (LOCK) {
+                      if (now - firstErrorAt > 45000L) { firstErrorAt = now; errorCount = 0; }
+                      errorCount++;
+                      if (errorCount < 2) return;
+                  }
+                  if (failureInFlight || reloading) return;
+                  if (now - lastFailureReportAt < 30000L || now - lastReloadAt < 20000L) return;
+                  lastFailureReportAt = now;
+                  failureInFlight = true;
+                  submit(new Runnable() {
+                      @Override public void run() {
+                          try { reportPlaybackFailure(); } finally { failureInFlight = false; }
+                      }
+                  });
+              }
+
+              // ------------------------------------------------------------------ ciclo de 60 s
+
+              private static void submit(Runnable r) {
+                  try {
+                      if (executor != null) executor.execute(r);
+                  } catch (Throwable ignored) {
+                  }
+              }
+
+              private static void pushContentNow() {
+                  submit(new Runnable() {
+                      @Override public void run() {
+                          try { sendHeartbeat(); } catch (Throwable ignored) {}
+                      }
+                  });
+              }
+
+              private static void cycle() {
+                  try {
+                      if (currentMac().isEmpty()) return;
+                      sendHeartbeat();
+                      handleNotifications();
+                  } catch (Throwable ignored) {
+                  }
+              }
+
+              private static String currentContent() {
+                  String t = pendingTitle;
+                  if (!playerActive || t == null || t.length() == 0) return IDLE;
+                  return t;
+              }
+
+              private static JSONObject sendHeartbeat() throws Exception {
+                  String mac = currentMac();
+                  if (mac.isEmpty()) return null;
+                  String content = currentContent();
+                  lastSentContent = content;
+                  String path = "/api/v5/heartbeat?mac=" + enc(mac) + "&current_content=" + enc(content);
+                  JSONObject response = getWithAppId(path);
+                  if (response != null) handleCommand(response.optJSONObject("command"), mac);
+                  return response;
+              }
+
+              // ------------------------------------------------------------------ avisos, vencimento, troca de lista
+
+              private static void handleNotifications() throws Exception {
+                  String mac = currentMac();
+                  if (mac.isEmpty()) return;
+                  JSONObject payload = get("/api/v5/list-notifications?mac=" + enc(mac));
+                  if (payload == null || !payload.optBoolean("success", false)) return;
+
+                  SharedPreferences prefs = prefs();
+                  long transitionId = payload.optLong("failover_transition_id", 0L);
+                  boolean syncRequired = payload.optBoolean("playlist_sync_required", false);
+                  boolean restored = "primary_restored".equalsIgnoreCase(payload.optString("failover_state", ""));
+                  long seen = prefs == null ? 0L : prefs.getLong("failover_transition_id", 0L);
+                  boolean already = transitionId > 0L && transitionId == seen;
+                  if ((syncRequired || restored) && transitionId > 0L && !already) {
+                      int number = payload.optInt("active_list_number", 0);
+                      if (prefs != null) prefs.edit().putLong("failover_transition_id", transitionId).apply();
+                      int wanted = number - 1;
+                      if (wanted >= 0 && wanted != cacheActiveIndex()) {
+                          toast(restored ? "Lista principal restaurada" : "Lista reserva ativada");
+                          reloadLists(wanted);
+                          return;
+                      }
+                  }
+
+                  JSONObject expiration = payload.optJSONObject("expiration");
+                  if (expiration != null && expiration.optBoolean("show_modal", false)) {
+                      String key = expiration.optString("modal_key", "");
+                      String shown = prefs == null ? "" : prefs.getString("expiration_key", "");
+                      if (!key.isEmpty() && !key.equals(shown)) {
+                          if (showDialog(expiration.optString("modal_title", "Aviso"), expiration.optString("modal_message", ""))) {
+                              if (prefs != null) prefs.edit().putString("expiration_key", key).apply();
+                          }
+                      }
+                  }
+
+                  JSONArray list = payload.optJSONArray("notifications");
+                  if (list != null) {
+                      for (int i = 0; i < list.length(); i++) {
+                          JSONObject n = list.optJSONObject(i);
+                          if (n == null || n.optBoolean("acknowledged", false)) continue;
+                          final long id = n.optLong("id", 0L);
+                          if (id <= 0L) continue;
+                          synchronized (SHOWN_ALERTS) { if (SHOWN_ALERTS.contains(id)) continue; }
+                          if (showDialog(n.optString("title", "Aviso"), n.optString("message", ""))) {
+                              synchronized (SHOWN_ALERTS) { SHOWN_ALERTS.add(id); }
+                              JSONObject body = new JSONObject();
+                              body.put("mac", mac);
+                              body.put("alert_id", id);
+                              post("/api/v5/list-notifications/ack", body);
+                          }
+                      }
+                  }
+              }
+
+              // ------------------------------------------------------------------ comandos remotos
+
+              private static void handleCommand(JSONObject command, String mac) {
+                  try {
+                      if (command == null) {
+                          JSONObject r = getWithAppId("/api/v5/remote-commands?mac=" + enc(mac));
+                          command = r == null ? null : r.optJSONObject("command");
+                      }
+                      if (command == null) return;
+                      int id = command.optInt("id", 0);
+                      if (id <= 0) return;
+                      String type = command.optString("type", "");
+                      JSONObject p = command.optJSONObject("payload");
+                      if (p == null) p = new JSONObject();
+                      String status = "executed";
+                      String result = "";
+                      if ("show_message".equals(type)) {
+                          String msg = p.optString("message", "");
+                          String title = p.optString("title", "Aviso");
+                          if (msg.isEmpty()) { status = "failed"; result = "Mensagem vazia"; }
+                          else if (!showDialog(title.isEmpty() ? "Aviso" : title, msg)) { return; } // tela fechada: tenta no próximo ciclo
+                      } else if ("switch_playlist".equals(type)) {
+                          int idx = p.optInt("listIndex", p.optInt("list_index", 0)) - 1;
+                          if (idx < 0 || !cacheHasList(idx)) { status = "failed"; result = "Lista inexistente neste aparelho"; }
+                          else {
+                              ack(mac, id, status, "Trocando para a lista " + (idx + 1));
+                              reloadLists(idx);
+                              return;
+                          }
+                      } else if ("refresh_playlist".equals(type) || "update_dns".equals(type)
+                              || "sync_access".equals(type) || "restart_player".equals(type)) {
+                          ack(mac, id, status, "Recarregando a lista");
+                          reloadLists(Math.max(0, cacheActiveIndex()));
+                          return;
+                      } else {
+                          status = "failed";
+                          result = "Comando não suportado: " + type;
+                      }
+                      ack(mac, id, status, result);
+                  } catch (Throwable ignored) {
+                  }
+              }
+
+              private static void ack(String mac, int id, String status, String message) {
+                  try {
+                      JSONObject body = new JSONObject();
+                      body.put("mac", mac);
+                      body.put("command_id", id);
+                      body.put("status", status);
+                      body.put("app", APP_ID);
+                      if (message != null && message.length() > 0) body.put("result_message", message);
+                      post("/api/v5/remote-commands/ack", body);
+                  } catch (Throwable ignored) {
+                  }
+              }
+
+              // ------------------------------------------------------------------ falha de reprodução
+
+              private static void reportPlaybackFailure() {
+                  try {
+                      String mac = currentMac();
+                      if (mac.isEmpty()) return;
+                      JSONObject body = new JSONObject();
+                      body.put("mac", mac);
+                      body.put("active_list_number", Math.max(0, cacheActiveIndex()) + 1);
+                      JSONObject r = post("/api/v5/playback-failure", body);
+                      if (r == null) return;
+                      if (r.optBoolean("switch_applied", false)) {
+                          int number = r.optInt("list_index", r.optInt("next_playlist_number", 0));
+                          SharedPreferences prefs = prefs();
+                          long tid = r.optLong("failover_transition_id", 0L);
+                          if (prefs != null && tid > 0L) prefs.edit().putLong("failover_transition_id", tid).apply();
+                          toast("Lista reserva ativada");
+                          if (number > 0) reloadLists(number - 1);
+                      } else if (r.optBoolean("dns_failover_applied", false) || r.optBoolean("retry_current_playlist", false)) {
+                          toast("Atualizando a lista");
+                          reloadLists(Math.max(0, cacheActiveIndex()));
+                      }
+                  } catch (Throwable ignored) {
+                  }
+              }
+
+              // ------------------------------------------------------------------ recarregar lista (mesmo caminho do "Trocar lista" do app)
+
+              private static void reloadLists(final int index) {
+                  if (reloading) return;
+                  reloading = true;
+                  lastReloadAt = System.currentTimeMillis();
+                  final String mac = currentMac();
+                  new Thread(new Runnable() {
+                      @Override public void run() {
+                          try {
+                              Class<?> gwType = Class.forName(INTEGRATION + "RenciaGateway");
+                              Object gw = gwType.getDeclaredConstructor().newInstance();
+                              Object accesses = gwType.getMethod("loadAccesses", String.class).invoke(gw, mac);
+                              Class<?> cache = Class.forName(INTEGRATION + "RenciaCredentialCache");
+                              cache.getMethod("setAll", Context.class, List.class).invoke(null, app, accesses);
+                          } catch (Throwable ignored) {
+                              // sem rede/painel: segue com as listas que o app já tem
+                          }
+                          MAIN.post(new Runnable() {
+                              @Override public void run() { switchAndOpen(index); }
+                          });
+                      }
+                  }, "optimus-reload").start();
+              }
+
+              private static void switchAndOpen(int index) {
+                  try {
+                      int count = cacheCount();
+                      int target = index;
+                      if (target < 0 || target >= count) target = Math.max(0, Math.min(count - 1, cacheActiveIndex()));
+                      Class<?> bridge = Class.forName(INTEGRATION + "RenciaLoginBridge");
+                      Method m = bridge.getMethod("switchToList", int.class, Runnable.class, Runnable.class);
+                      m.invoke(null, target, new Runnable() {
+                          @Override public void run() { openMain(); }
+                      }, new Runnable() {
+                          @Override public void run() { reloading = false; toast("Lista indisponível"); }
+                      });
+                  } catch (Throwable t) {
+                      reloading = false;
+                  }
+              }
+
+              private static void openMain() {
+                  try {
+                      Class<?> main = Class.forName("com.iptv.cliente.MainActivity");
+                      Activity a = top.get();
+                      Context ctx = a != null ? a : app;
+                      Intent intent = new Intent(ctx, main);
+                      intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+                      ctx.startActivity(intent);
+                  } catch (Throwable ignored) {
+                  } finally {
+                      playerActive = false;
+                      MAIN.postDelayed(new Runnable() {
+                          @Override public void run() { reloading = false; }
+                      }, 5000L);
+                  }
+              }
+
+              // ------------------------------------------------------------------ tela
+
+              /** Mostra um aviso na tela. Devolve false se não há tela aberta agora (tenta de novo no próximo ciclo). */
+              private static boolean showDialog(final String title, final String message) {
+                  final Activity a = top.get();
+                  if (a == null || a.isFinishing()) return false;
+                  if (message == null || message.trim().isEmpty()) return true;
+                  MAIN.post(new Runnable() {
+                      @Override public void run() {
+                          try {
+                              if (a.isFinishing()) return;
+                              AlertDialog.Builder b = new AlertDialog.Builder(a);
+                              b.setTitle(title == null || title.isEmpty() ? "Aviso" : title);
+                              b.setMessage(message);
+                              b.setCancelable(true);
+                              b.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                  @Override public void onClick(DialogInterface d, int w) { d.dismiss(); }
+                              });
+                              b.show();
+                          } catch (Throwable ignored) {
+                          }
+                      }
+                  });
+                  return true;
+              }
+
+              private static void toast(final String text) {
+                  MAIN.post(new Runnable() {
+                      @Override public void run() {
+                          try {
+                              Context c = top.get() != null ? top.get() : app;
+                              if (c != null) Toast.makeText(c, text, Toast.LENGTH_LONG).show();
+                          } catch (Throwable ignored) {
+                          }
+                      }
+                  });
+              }
+
+              // ------------------------------------------------------------------ dados do app (reflexão)
+
+              private static String currentMac() {
+                  try {
+                      Class<?> cache = Class.forName(INTEGRATION + "RenciaCredentialCache");
+                      Object v = cache.getMethod("mac").invoke(null);
+                      return v instanceof String ? ((String) v).trim() : "";
+                  } catch (Throwable t) {
+                      return "";
+                  }
+              }
+
+              private static int cacheActiveIndex() {
+                  try {
+                      Class<?> cache = Class.forName(INTEGRATION + "RenciaCredentialCache");
+                      return (Integer) cache.getMethod("activeIndex").invoke(null);
+                  } catch (Throwable t) {
+                      return 0;
+                  }
+              }
+
+              private static int cacheCount() {
+                  try {
+                      Class<?> cache = Class.forName(INTEGRATION + "RenciaCredentialCache");
+                      return (Integer) cache.getMethod("count").invoke(null);
+                  } catch (Throwable t) {
+                      return 0;
+                  }
+              }
+
+              private static boolean cacheHasList(int idx) {
+                  return idx >= 0 && idx < cacheCount();
+              }
+
+              private static SharedPreferences prefs() {
+                  try {
+                      return app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+                  } catch (Throwable t) {
+                      return null;
+                  }
+              }
+
+              // ------------------------------------------------------------------ HTTP (Railway primeiro, Manus de reserva)
+
+              private static String enc(String s) {
+                  try { return URLEncoder.encode(s, "UTF-8"); } catch (Exception e) { return s; }
+              }
+
+              /** GET com app_id; se o painel disser que o MAC não é desse app, repete sem app_id. */
+              private static JSONObject getWithAppId(String path) {
+                  if (sendAppId) {
+                      JSONObject r = get(path + "&app_id=" + APP_ID);
+                      if (r != null && !r.optBoolean("success", true) && r.optString("message", "").contains("vinculado")) {
+                          sendAppId = false;
+                      } else {
+                          return r;
+                      }
+                  }
+                  return get(path);
+              }
+
+              private static JSONObject get(String path) {
+                  return request("GET", path, null);
+              }
+
+              private static JSONObject post(String path, JSONObject body) {
+                  return request("POST", path, body);
+              }
+
+              private static JSONObject request(String method, String path, JSONObject body) {
+                  for (int i = 0; i < BASES.length; i++) {
+                      HttpURLConnection c = null;
+                      try {
+                          c = (HttpURLConnection) new URL(BASES[i] + path).openConnection();
+                          c.setRequestMethod(method);
+                          c.setConnectTimeout(8000);
+                          c.setReadTimeout(12000);
+                          c.setUseCaches(false);
+                          c.setRequestProperty("Accept", "application/json");
+                          if (body != null) {
+                              c.setDoOutput(true);
+                              c.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                              OutputStream os = c.getOutputStream();
+                              os.write(body.toString().getBytes(StandardCharsets.UTF_8));
+                              os.close();
+                          }
+                          int code = c.getResponseCode();
+                          InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+                          String text = in == null ? "" : read(in).trim();
+                          if (code >= 500) continue;               // erro do servidor: tenta o reserva
+                          if (!text.startsWith("{")) continue;     // HTML/lixo: tenta o reserva
+                          return new JSONObject(text);             // 2xx e 4xx são respostas de verdade
+                      } catch (Throwable ignored) {
+                      } finally {
+                          if (c != null) c.disconnect();
+                      }
+                  }
+                  return null;
+              }
+
+              private static String read(InputStream in) throws Exception {
+                  BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+                  StringBuilder sb = new StringBuilder();
+                  String line;
+                  while ((line = r.readLine()) != null) sb.append(line);
+                  r.close();
+                  return sb.toString();
+              }
+          }
+          JEOF
+
           # 1) smali: só os dex que têm algo a corrigir
           : > work/applied.txt
           CHANGED=""
           for F in work/dex/classes*.dex; do
             NAME=$(basename "$F")
-            if grep -aq -e "renciaapp.manus.space" -e "UpdateBannerKt" -e "PlatformBranding" -e "ui/components/SideNavKt" "$F"; then
+            if grep -aq -e "renciaapp.manus.space" -e "UpdateBannerKt" -e "PlatformBranding" -e "ui/components/SideNavKt" -e "PlaybackContext" -e "MainActivityKt" "$F"; then
               echo "== $NAME"
               baksmali d "$F" -o "work/smali_$NAME"
               python3 patch_all.py "work/smali_$NAME" work/applied.txt
-              smali a "work/smali_$NAME" -o "work/new/$NAME"
+              # mantém a mesma versão de dex do original (035/037/038/039), para não mudar a compatibilidade
+              VER=$(head -c 7 "$F" | tail -c 3)
+              case "$VER" in 037) API=24 ;; 038) API=26 ;; 039) API=28 ;; *) API=15 ;; esac
+              echo "dex $NAME versão $VER -> smali --api $API"
+              smali a --api "$API" "work/smali_$NAME" -o "work/new/$NAME"
               CHANGED="$CHANGED $NAME"
             fi
           done
           test -n "$CHANGED" || { echo "Nenhum dex para corrigir"; exit 1; }
           sort -u work/applied.txt > work/applied_u.txt
           echo "Patches aplicados:"; cat work/applied_u.txt
-          for P in painel heartbeat atualizacao sair logo; do
+          for P in painel heartbeat atualizacao fechar fechar_titulo fechar_texto fechar_config logo hook_app hook_pending hook_active hook_error; do
             grep -qx "$P" work/applied_u.txt || { echo "ERRO: patch '$P' não foi aplicado"; exit 1; }
           done
 
-          # 2) imagens: ícones, banner, splash, logo da ativação e logo interna
+          # 2) código novo do painel (Assistindo, avisos, comandos, troca de lista): compila e vira um dex à parte
+          BT=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/* | sort -V | tail -1)
+          ANDROID_JAR=$(ls "$ANDROID_SDK_ROOT"/platforms/android-*/android.jar | sort -V | tail -1)
+          echo "build-tools: $BT | android.jar: $ANDROID_JAR"
+          javac -nowarn -Xlint:-options --release 8 -cp "$ANDROID_JAR" -d work/jc src/com/optimus/panel/OptimusPanel.java
+          "$BT/d8" --release --min-api 21 --lib "$ANDROID_JAR" --output work/d8 $(find work/jc -name '*.class')
+          NDEX=$(ls work/dex/classes*.dex | wc -l)
+          NEWDEX="classes$((NDEX + 1)).dex"
+          cp work/d8/classes.dex "work/new/$NEWDEX"
+          CHANGED="$CHANGED $NEWDEX"
+          echo "Dex novo do painel: $NEWDEX"
+
+          # 3) imagens: ícones, banner, splash, logo da ativação e logo interna
           python3 make_assets.py "$APK" optimus_logo.png work/res
 
-          # 3) monta o APK
+          # 4) monta o APK
           cp "$APK" work/unsigned.apk
           zip -q -d work/unsigned.apk 'META-INF/*' || true
           (cd work/new && zip -q ../unsigned.apk $CHANGED)
           (cd work/res && zip -q -r -D ../unsigned.apk res assets)
 
-          BT=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/* | sort -V | tail -1)
           "$BT/zipalign" -p -f 4 work/unsigned.apk work/aligned.apk
           OUT="Optimus-ajustado.apk"
           "$BT/apksigner" sign --ks optimus.keystore --ks-key-alias optimus \
@@ -336,15 +953,19 @@ jobs:
           import zipfile
           z = zipfile.ZipFile("Optimus-ajustado.apk")
           names = z.namelist()
-          dex = b"".join(z.read(n) for n in names if n.startswith("classes") and n.endswith(".dex"))
+          dexnames = [n for n in names if n.startswith("classes") and n.endswith(".dex")]
+          dex = b"".join(z.read(n) for n in dexnames)
           assert b"renciaapp-production.up.railway.app" in dex, "Railway não encontrado no APK final"
           assert b"renciaapp.manus.space" not in dex, "Manus ainda presente no APK final"
           assert b"__idle__" in dex, "Sentinela __idle__ ausente no APK final"
           assert b"file:///android_asset/optimus_logo.png" in dex, "Logo interna não ligada"
+          assert b"Lcom/optimus/panel/OptimusPanel;" in dex, "Código do painel ausente no APK final"
+          holders = [n for n in dexnames if b"Lcom/optimus/panel/OptimusPanel;" in z.read(n) and b"onPlayerActive" in z.read(n)]
+          assert holders, "Classe OptimusPanel não está em nenhum dex"
           assert "assets/optimus_logo.png" in names, "assets/optimus_logo.png ausente"
           for n in ("res/drawable/ic_launcher.webp", "res/drawable-xxxhdpi/ic_launcher.webp", "res/drawable/banner.webp"):
               assert n in names, n + " ausente"
-          print("OK: painel, logo interna, ícones e ajustes presentes no APK final")
+          print("OK: painel, Assistindo, logo, ícones e ajustes presentes no APK final (dex do painel:", holders, ")")
           PYEOF
           sha256sum "$OUT"
 
