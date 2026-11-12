@@ -2,8 +2,12 @@ name: Optimus - corrigir painel (Railway + Assistindo)
 
 # Corrige o APK pronto do Optimus SEM reconstruir o app inteiro: troca só o endereço do painel
 # (Manus -> Railway) e faz o heartbeat mandar "__idle__" quando nada está tocando.
-# Como usar: aba Actions > "Optimus - corrigir painel" > Run workflow > baixar o APK em Artifacts.
+# Como usar: roda sozinho quando este arquivo é enviado ao repositório (não precisa do botão Run workflow).
+# Também dá para rodar à mão: aba Actions > "Optimus - corrigir painel" > Run workflow. O APK sai em Artifacts.
 on:
+  push:
+    paths:
+      - ".github/workflows/optimus-painel.yml"
   workflow_dispatch:
     inputs:
       apk:
@@ -18,7 +22,7 @@ jobs:
       - name: Baixar só o APK escolhido
         uses: actions/checkout@v4
         with:
-          sparse-checkout: ${{ inputs.apk }}
+          sparse-checkout: ${{ inputs.apk || 'Optimus1.0.20-global-bg-profile-menu-delete-fixed.apk' }}
           sparse-checkout-cone-mode: false
 
       - name: Instalar ferramentas (smali/baksmali e zip)
@@ -43,7 +47,7 @@ jobs:
 
       - name: Corrigir o APK
         env:
-          APK: ${{ inputs.apk }}
+          APK: ${{ inputs.apk || 'Optimus1.0.20-global-bg-profile-menu-delete-fixed.apk' }}
         run: |
           set -euo pipefail
           test -f "$APK" || { echo "APK não encontrado: $APK"; exit 1; }
