@@ -37,9 +37,9 @@ jobs:
       - name: Instalar ferramentas (smali/baksmali, zip e Pillow)
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q smali zip unzip
+          sudo apt-get install -y -q smali zip unzip python3-pil
           command -v baksmali && command -v smali
-          pip install -q pillow
+          python3 -c "from PIL import features; assert features.check('webp'), 'Pillow sem suporte a WebP'; print('Pillow OK com WebP')"
 
       - name: Chave de assinatura (guardada em cache entre execuções)
         id: keycache
