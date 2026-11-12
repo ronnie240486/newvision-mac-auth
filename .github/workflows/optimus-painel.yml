@@ -1,0 +1,183 @@
+name: Optimus - corrigir painel (Railway + Assistindo)
+
+# Corrige o APK pronto do Optimus SEM reconstruir o app inteiro: troca só o endereço do painel
+# (Manus -> Railway) e faz o heartbeat mandar "__idle__" quando nada está tocando.
+# Como usar: aba Actions > "Optimus - corrigir painel" > Run workflow > baixar o APK em Artifacts.
+on:
+  workflow_dispatch:
+    inputs:
+      apk:
+        description: "Nome do APK de origem (arquivo na raiz do repositório)"
+        required: true
+        default: "Optimus1.0.20-global-bg-profile-menu-delete-fixed.apk"
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar só o APK escolhido
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: ${{ inputs.apk }}
+          sparse-checkout-cone-mode: false
+
+      - name: Instalar ferramentas (smali/baksmali e zip)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q smali zip unzip
+          command -v baksmali && command -v smali
+
+      - name: Chave de assinatura (guardada em cache entre execuções)
+        id: keycache
+        uses: actions/cache@v4
+        with:
+          path: optimus.keystore
+          key: optimus-keystore-v1
+
+      - name: Criar a chave se ainda não existir
+        run: |
+          if [ ! -f optimus.keystore ]; then
+            keytool -genkeypair -v -keystore optimus.keystore -storepass optimus-test-key -keypass optimus-test-key \
+              -alias optimus -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Optimus Test"
+          fi
+
+      - name: Corrigir o APK
+        env:
+          APK: ${{ inputs.apk }}
+        run: |
+          set -euo pipefail
+          test -f "$APK" || { echo "APK não encontrado: $APK"; exit 1; }
+          mkdir -p work/dex work/new
+          cd work/dex && unzip -q "../../$APK" 'classes*.dex' && cd ../..
+
+          cat > patch_panel.py <<'PYEOF'
+          import os, re, sys
+
+          OLD = "https://renciaapp.manus.space"
+          NEW = "https://renciaapp-production.up.railway.app"
+          HEADER = ".method public heartbeat(Ljava/lang/String;Ljava/lang/String;)Lorg/json/JSONObject;"
+          IDLE_BLOCK = """
+              # Optimus: sem conteudo tocando, manda a sentinela __idle__ (limpa o "Assistindo" no painel)
+              if-eqz p2, :ominus_idle
+
+              invoke-virtual {p2}, Ljava/lang/String;->trim()Ljava/lang/String;
+
+              move-result-object v0
+
+              invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+
+              move-result v0
+
+              if-eqz v0, :ominus_keep
+
+              :ominus_idle
+              const-string p2, "__idle__"
+
+              :ominus_keep
+          """
+
+          def patch_heartbeat(path):
+              text = open(path, encoding="utf-8").read()
+              if "__idle__" in text:
+                  return "ja-aplicado"
+              lines = text.split("\n")
+              try:
+                  start = next(i for i, l in enumerate(lines) if l.strip() == HEADER)
+              except StopIteration:
+                  raise SystemExit("ERRO: metodo heartbeat(String,String) nao encontrado em " + path)
+              i = start + 1
+              in_annotation = False
+              registers_line = None
+              while i < len(lines):
+                  s = lines[i].strip()
+                  if s.startswith(".registers") or s.startswith(".locals"):
+                      registers_line = s
+                  if s.startswith(".annotation"):
+                      in_annotation = True
+                  elif s.startswith(".end annotation"):
+                      in_annotation = False
+                  elif in_annotation or s == "" or s.startswith((".registers", ".locals", ".param", ".end param")):
+                      pass
+                  else:
+                      break
+                  i += 1
+              if registers_line is None:
+                  raise SystemExit("ERRO: .registers/.locals nao encontrado no metodo heartbeat")
+              n = int(registers_line.split()[1])
+              free = n - 3 if registers_line.startswith(".registers") else n  # p0, p1, p2 sao parametros
+              if free < 1:
+                  raise SystemExit("ERRO: heartbeat sem registrador livre (" + registers_line + ")")
+              lines[i:i] = IDLE_BLOCK.rstrip("\n").split("\n") + [""]
+              open(path, "w", encoding="utf-8").write("\n".join(lines))
+              return "aplicado"
+
+          def main(root):
+              replaced_files = 0
+              gateway = None
+              for dirpath, _, files in os.walk(root):
+                  for name in files:
+                      if not name.endswith(".smali"):
+                          continue
+                      path = os.path.join(dirpath, name)
+                      text = open(path, encoding="utf-8").read()
+                      if OLD in text:
+                          open(path, "w", encoding="utf-8").write(text.replace(OLD, NEW))
+                          replaced_files += 1
+                      if path.replace("\\", "/").endswith("com/iptv/newvision/integration/RenciaGateway.smali"):
+                          gateway = path
+              if replaced_files == 0:
+                  raise SystemExit("ERRO: o endereco antigo nao foi encontrado em nenhum smali")
+              print("endereco do painel trocado em", replaced_files, "arquivo(s) smali")
+              if gateway is None:
+                  raise SystemExit("ERRO: RenciaGateway.smali nao encontrado")
+              print("heartbeat:", patch_heartbeat(gateway))
+
+          if __name__ == "__main__":
+              main(sys.argv[1])
+          PYEOF
+
+          # descobre qual classesN.dex tem o endereço antigo
+          TARGET=$(python3 - <<'PYEOF'
+          import glob
+          for f in sorted(glob.glob("work/dex/classes*.dex")):
+              if b"renciaapp.manus.space" in open(f, "rb").read():
+                  print(f); break
+          PYEOF
+          )
+          test -n "$TARGET" || { echo "Endereço antigo não encontrado em nenhum dex (o APK já foi corrigido?)"; exit 1; }
+          NAME=$(basename "$TARGET")
+          echo "Dex alvo: $NAME"
+
+          baksmali d "$TARGET" -o work/smali
+          python3 patch_panel.py work/smali
+          smali a work/smali -o "work/new/$NAME"
+
+          cp "$APK" work/unsigned.apk
+          zip -q -d work/unsigned.apk 'META-INF/*' || true
+          (cd work/new && zip -q ../unsigned.apk "$NAME")
+
+          BT=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/* | sort -V | tail -1)
+          "$BT/zipalign" -p -f 4 work/unsigned.apk work/aligned.apk
+          OUT="Optimus-painel-corrigido.apk"
+          "$BT/apksigner" sign --ks optimus.keystore --ks-key-alias optimus \
+            --ks-pass pass:optimus-test-key --key-pass pass:optimus-test-key \
+            --out "$OUT" work/aligned.apk
+          "$BT/apksigner" verify --verbose "$OUT"
+
+          # conferência final: o endereço novo está dentro do APK e o antigo saiu
+          python3 - <<'PYEOF'
+          import zipfile
+          z = zipfile.ZipFile("Optimus-painel-corrigido.apk")
+          dex = b"".join(z.read(n) for n in z.namelist() if n.startswith("classes") and n.endswith(".dex"))
+          assert b"renciaapp-production.up.railway.app" in dex, "Railway não encontrado no APK final"
+          assert b"renciaapp.manus.space" not in dex, "Manus ainda presente no APK final"
+          assert b"__idle__" in dex, "Sentinela __idle__ ausente no APK final"
+          print("OK: Railway presente, Manus removido, __idle__ presente")
+          PYEOF
+          sha256sum "$OUT"
+
+      - name: Guardar o APK corrigido
+        uses: actions/upload-artifact@v4
+        with:
+          name: Optimus-painel-corrigido
+          path: Optimus-painel-corrigido.apk
