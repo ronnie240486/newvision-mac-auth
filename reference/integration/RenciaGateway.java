@@ -22,7 +22,11 @@ import java.util.Locale;
  * conteúdo, o chamador deve executar loadAccess(mac) e respeitar allowed.
  */
 public final class RenciaGateway {
-    public static final String BASE_URL = "https://renciaapp.manus.space";
+    // Painel atual (Railway). O Manus é só reserva: o domínio antigo não fala mais a API de verdade.
+    public static final String BASE_URL = "https://renciaapp-production.up.railway.app";
+    public static final String BASE_URL_FALLBACK = "https://renciaapp.manus.space";
+    /** Sentinela que o painel entende como "saiu do player": limpa o "Assistindo" na hora. */
+    public static final String HEARTBEAT_IDLE_SENTINEL = "__idle__";
     private static final int CONNECT_TIMEOUT_MS = 8000;
     private static final int READ_TIMEOUT_MS = 15000;
 
@@ -129,11 +133,11 @@ public final class RenciaGateway {
 
     public JSONObject heartbeat(String rawMac, String currentContent) throws Exception {
         String mac = requireMac(rawMac);
-        String path = "/api/v5/heartbeat?mac=" + encode(mac);
-        if (currentContent != null && !currentContent.trim().isEmpty()) {
-            path += "&current_content=" + encode(currentContent.trim());
-        }
-        return get(path);
+        // Sem conteúdo tocando, manda a sentinela explícita; omitir o parâmetro deixa o "Assistindo" velho no painel.
+        String content = currentContent != null && !currentContent.trim().isEmpty()
+                ? currentContent.trim()
+                : HEARTBEAT_IDLE_SENTINEL;
+        return get("/api/v5/heartbeat?mac=" + encode(mac) + "&current_content=" + encode(content));
     }
 
     public JSONObject acknowledgeAlert(String rawMac, int alertId) throws Exception {
@@ -193,28 +197,74 @@ public final class RenciaGateway {
         return normalized;
     }
 
+    /** Tenta o Railway e só cai no Manus se der exceção, resposta inválida (HTML) ou erro 5xx. Erro 4xx é resposta de verdade. */
     private JSONObject get(String path) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(BASE_URL + path).openConnection();
-        connection.setRequestMethod("GET");
-        connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
-        connection.setReadTimeout(READ_TIMEOUT_MS);
-        connection.setRequestProperty("Accept", "application/json");
-        return readJson(connection);
+        try {
+            return getFrom(BASE_URL, path);
+        } catch (Exception primary) {
+            if (isDefinitiveAnswer(primary)) throw primary;
+            try {
+                return getFrom(BASE_URL_FALLBACK, path);
+            } catch (Exception fallback) {
+                throw primary;
+            }
+        }
     }
 
     private JSONObject post(String path, JSONObject payload) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(BASE_URL + path).openConnection();
-        connection.setRequestMethod("POST");
-        connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
-        connection.setReadTimeout(READ_TIMEOUT_MS);
-        connection.setDoOutput(true);
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-        byte[] bytes = payload.toString().getBytes(StandardCharsets.UTF_8);
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(bytes);
+        try {
+            return postTo(BASE_URL, path, payload);
+        } catch (Exception primary) {
+            if (isDefinitiveAnswer(primary)) throw primary;
+            try {
+                return postTo(BASE_URL_FALLBACK, path, payload);
+            } catch (Exception fallback) {
+                throw primary;
+            }
         }
-        return readJson(connection);
+    }
+
+    private boolean isDefinitiveAnswer(Exception error) {
+        String message = error.getMessage();
+        if (message == null || !message.startsWith("Backend HTTP ")) return false;
+        try {
+            int code = Integer.parseInt(message.substring("Backend HTTP ".length()).trim());
+            return code >= 400 && code < 500;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private JSONObject getFrom(String baseUrl, String path) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(baseUrl + path).openConnection();
+        try {
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
+            connection.setReadTimeout(READ_TIMEOUT_MS);
+            connection.setRequestProperty("Accept", "application/json");
+            return readJson(connection);
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private JSONObject postTo(String baseUrl, String path, JSONObject payload) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(baseUrl + path).openConnection();
+        try {
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
+            connection.setReadTimeout(READ_TIMEOUT_MS);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            byte[] bytes = payload.toString().getBytes(StandardCharsets.UTF_8);
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(bytes);
+            }
+            return readJson(connection);
+        } finally {
+            connection.disconnect();
+        }
     }
 
     private JSONObject readJson(HttpURLConnection connection) throws Exception {
@@ -232,7 +282,11 @@ public final class RenciaGateway {
         if (code < 200 || code >= 300) {
             throw new IllegalStateException("Backend HTTP " + code);
         }
-        return new JSONObject(text.toString());
+        String body = text.toString().trim();
+        if (body.regionMatches(true, 0, "<html", 0, 5) || body.regionMatches(true, 0, "<!doctype", 0, 9)) {
+            throw new IllegalStateException("Resposta HTML inválida do backend");
+        }
+        return new JSONObject(body);
     }
 
     private String encode(String value) throws Exception {
